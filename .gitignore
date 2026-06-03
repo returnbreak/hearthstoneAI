@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.pdb
+*.dll
+*.exe
+
+data/game_logs/
+data/replays/
+
+.venv/
+__pycache__/
+*.pyc

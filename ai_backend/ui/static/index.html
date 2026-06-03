@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HDT AI Assistant</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <h1>HDT AI Assistant</h1>
+        <p id="connection">Connecting</p>
+      </div>
+      <div class="counter">
+        <span>Messages</span>
+        <strong id="message-count">0</strong>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="panel hero-panel">
+        <h2>Heroes</h2>
+        <div class="heroes">
+          <div class="hero">
+            <span>Me</span>
+            <strong id="my-hero">--</strong>
+          </div>
+          <div class="hero">
+            <span>Opponent</span>
+            <strong id="enemy-hero">--</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Turn</h2>
+        <div class="large" id="turn">--</div>
+        <p id="mana">Mana --</p>
+      </article>
+
+      <article class="panel wide">
+        <h2>Hand</h2>
+        <div id="hand" class="cards empty">No hand data</div>
+      </article>
+
+      <article class="panel wide">
+        <h2>Board</h2>
+        <div class="board-columns">
+          <div>
+            <h3>Mine</h3>
+            <div id="my-board" class="cards empty">No minions</div>
+          </div>
+          <div>
+            <h3>Opponent</h3>
+            <div id="enemy-board" class="cards empty">No minions</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel events">
+        <h2>Recent Events</h2>
+        <ol id="events"></ol>
+      </article>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

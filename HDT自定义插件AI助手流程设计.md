@@ -540,4 +540,61 @@ data/replays/replay_test_report.md
 第二版完成 8-10。
 
 第 11 项只在确实需要时再做。
+## 13. 补充：随从交互流程
 
+当前第一版流程需要补充随从交互信息。插件层在构建 `GameState` 时，不只输出双方场面随从的攻血，还要输出影响交换判断的公开关键词和攻击状态。
+
+插件采集流程补充：
+
+```text
+1. 从 HDT 实体读取双方场面随从
+2. 为每个随从补充攻击状态和关键词
+3. 为双方英雄补充攻击状态
+4. 输出扩展后的 GameState
+5. 后端 combat_analyzer 根据 GameState 枚举合法攻击和交换候选
+6. rule_engine 基于候选判断是否解场、打脸、保留场攻或寻找斩杀
+7. LLM 只负责解释和排序，不直接凭空推演所有交换
+```
+
+新增随从字段：
+
+```json
+{
+  "can_attack": true,
+  "attacks_this_turn": 0,
+  "attacks_remaining": 1,
+  "zone_position": 2,
+  "taunt": true,
+  "divine_shield": false,
+  "stealth": false,
+  "immune": false,
+  "frozen": false,
+  "rush": false,
+  "charge": false,
+  "windfury": false,
+  "mega_windfury": false,
+  "lifesteal": false,
+  "poisonous": false,
+  "venomous": false,
+  "reborn": false,
+  "deathrattle": false,
+  "dormant": false,
+  "silenced": false,
+  "cant_attack": false
+}
+```
+
+新增英雄字段：
+
+```json
+{
+  "attack": 3,
+  "can_attack": true,
+  "attacks_this_turn": 0,
+  "attacks_remaining": 1,
+  "immune": false,
+  "frozen": false
+}
+```
+
+边界保持不变：插件只采集 HDT 已解析的公开实体状态，不读取隐藏手牌，不自动攻击，不做自动出牌。

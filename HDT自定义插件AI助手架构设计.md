@@ -712,3 +712,22 @@ HDT 自定义插件
 ```
 
 这条路线比纯屏幕识别更稳定，也更适合当前目标。第一版先做可用闭环，第二版优先补质量和稳定性，而不是优先做 RAG。LangChain 放在 Python 后端负责模型调用、Prompt 编排和可选结构化输出接入；LangGraph 暂不进入这两版范围，避免第一版复杂化。屏幕识别可以保留为后续兜底模块，但不应作为主采集层。
+## 18. 补充：随从交互与战斗关键词采集
+
+炉石建议质量不能只依赖手牌、血量和基础场面。随从交换是保持场面伤害、压制力和斩杀窗口的核心部分，因此插件层需要尽量完整采集公开战斗状态，后端规则层再做候选攻击和交换评估。
+
+插件层只负责采集，不负责完整策略搜索。第一阶段扩展 `MinionSnapshot` 和 `HeroSnapshot` 字段：
+
+- 随从基础战斗字段：`attack`、`health`、`damage`、`zone_position`、`can_attack`、`attacks_this_turn`、`attacks_remaining`。
+- 常见战斗关键词：`taunt`、`divine_shield`、`stealth`、`immune`、`frozen`、`rush`、`charge`、`windfury`、`mega_windfury`、`lifesteal`、`poisonous`、`venomous`、`reborn`、`deathrattle`、`dormant`、`silenced`、`cant_attack`。
+- 英雄战斗字段：`attack`、`can_attack`、`attacks_this_turn`、`attacks_remaining`、`immune`、`frozen`。
+
+后端后续应增加 `combat_analyzer`，基于这些公开字段生成候选：
+
+- 合法攻击列表。
+- 嘲讽约束。
+- 打脸候选和斩杀候选。
+- 随从交换候选。
+- 交换后的场攻、剩余生命、圣盾破除、吸血回血、风怒二次攻击等粗粒度结果。
+
+第一阶段不尝试实现完整炉石模拟器，也不覆盖所有卡牌特效。优先覆盖普通攻击、嘲讽、圣盾、吸血、风怒、冻结、突袭、冲锋、剧毒/烈毒、复生、亡语等常见公开关键词，让后端规则引擎具备基本随从交换判断能力。

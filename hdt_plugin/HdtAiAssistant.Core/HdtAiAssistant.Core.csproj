@@ -1,0 +1,45 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{1791278A-AD19-4BDB-94E5-5D92920650D8}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>HdtAiAssistant.Core</RootNamespace>
+    <AssemblyName>HdtAiAssistant.Core</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <LangVersion>5</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Net.WebSockets" />
+    <Reference Include="System.Net.WebSockets.Client" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Models\CardSnapshot.cs" />
+    <Compile Include="Models\GameEvent.cs" />
+    <Compile Include="Models\GameState.cs" />
+    <Compile Include="Models\HeroSnapshot.cs" />
+    <Compile Include="Models\ManaSnapshot.cs" />
+    <Compile Include="Models\MinionSnapshot.cs" />
+    <Compile Include="Publishing\IBackendTransport.cs" />
+    <Compile Include="Publishing\JsonPayloadWriter.cs" />
+    <Compile Include="Publishing\SnapshotPublisher.cs" />
+    <Compile Include="Publishing\WebSocketBackendTransport.cs" />
+    <Compile Include="Throttling\RecommendationTrigger.cs" />
+    <Compile Include="Throttling\SnapshotThrottler.cs" />
+    <Compile Include="Throttling\StateHashCalculator.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
