@@ -13,3 +13,4 @@ data/replays/
 .venv/
 __pycache__/
 *.pyc
+hearthstone_data/

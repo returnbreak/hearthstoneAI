@@ -48,6 +48,13 @@ const enemyBoard = document.getElementById("enemy-board");
 
 /** 近期事件列表（<ol>） */
 const events = document.getElementById("events");
+const recommendationPlan = document.getElementById("recommendation-plan");
+const recommendationConfidence = document.getElementById("recommendation-confidence");
+const recommendationSummary = document.getElementById("recommendation-summary");
+const recommendationActions = document.getElementById("recommendation-actions");
+
+let recommendationRequestInFlight = false;
+let recommendationRefreshQueued = false;
 
 
 // ── 顶层渲染入口 ─────────────────────────────────────────
@@ -91,6 +98,7 @@ function render(snapshot) {
 
   // 事件日志：委托给 renderEvents() 渲染
   renderEvents(snapshot.recent_events || []);
+  refreshRecommendation();
 }
 
 // ── 卡片 / 英雄 / 随从 格式化函数 ─────────────────────────
@@ -283,6 +291,58 @@ function renderEvents(items) {
  * @param {*} value - 要转义的值（会通过 String() 强制转为字符串）
  * @returns {string} 转义后的安全字符串
  */
+async function refreshRecommendation() {
+  if (recommendationRequestInFlight) {
+    recommendationRefreshQueued = true;
+    return;
+  }
+
+  recommendationRequestInFlight = true;
+  try {
+    const response = await fetch("/api/recommendation");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    renderRecommendation(await response.json());
+  } catch (error) {
+    renderRecommendation({
+      plan: "unavailable",
+      summary: "Recommendation service is unavailable.",
+      confidence: 0,
+      actions: []
+    });
+  } finally {
+    recommendationRequestInFlight = false;
+    if (recommendationRefreshQueued) {
+      recommendationRefreshQueued = false;
+      refreshRecommendation();
+    }
+  }
+}
+
+function renderRecommendation(recommendation) {
+  const plan = recommendation?.plan || "--";
+  const confidence = Number(recommendation?.confidence ?? 0);
+  recommendationPlan.textContent = plan;
+  recommendationConfidence.textContent = `Confidence ${Math.round(confidence * 100)}%`;
+  recommendationSummary.textContent = recommendation?.summary || "No recommendation";
+  recommendationActions.innerHTML = "";
+
+  const actions = recommendation?.actions || [];
+  if (!actions.length) {
+    const node = document.createElement("li");
+    node.textContent = "No concrete action";
+    recommendationActions.appendChild(node);
+    return;
+  }
+
+  for (const action of actions) {
+    const node = document.createElement("li");
+    const damage = action.damage == null ? "" : ` damage ${action.damage}`;
+    const reason = action.reason ? ` - ${action.reason}` : "";
+    node.textContent = `${action.type || "action"} ${action.source ?? ""} -> ${action.target ?? ""}${damage}${reason}`.trim();
+    recommendationActions.appendChild(node);
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")   // & 必须先转义，否则会破坏后续实体

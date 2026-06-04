@@ -17,6 +17,7 @@ namespace HdtAiAssistant.Core.Models
         public int Cost { get; set; }
         /// <summary>卡牌类型（如 SPELL、MINION、WEAPON）。</summary>
         public string Type { get; set; }
+        public string Text { get; set; }
         /// <summary>卡牌所在区域（HAND / DECK / PLAY）。</summary>
         public string Zone { get; set; }
         /// <summary>卡牌信息来源（如 "played" 表示从已打出卡牌中推断）。</summary>

@@ -92,7 +92,8 @@ namespace HdtAiAssistant.Core.Throttling
                     builder.Append(Safe(card.CardId)).Append(':');
                     builder.Append(card.DbFId).Append(':');
                     builder.Append(card.Cost).Append(':');
-                    builder.Append(Safe(card.Type)).Append(';');
+                    builder.Append(Safe(card.Type)).Append(':');
+                    builder.Append(Safe(card.Text)).Append(';');
                 }
             }
             builder.AppendLine();
@@ -110,6 +111,7 @@ namespace HdtAiAssistant.Core.Throttling
                         continue;
                     builder.Append(minion.EntityId).Append(':');
                     builder.Append(Safe(minion.CardId)).Append(':');
+                    builder.Append(Safe(minion.Text)).Append(':');
                     builder.Append(minion.Attack).Append(':');
                     builder.Append(minion.Health).Append(':');
                     builder.Append(minion.Damage).Append(':');

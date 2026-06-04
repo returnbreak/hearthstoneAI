@@ -101,6 +101,39 @@ h3 {
   grid-column: span 4;
 }
 
+.recommendation {
+  min-height: 130px;
+}
+
+.recommendation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+#recommendation-plan {
+  color: var(--text);
+  font-size: 24px;
+  text-transform: uppercase;
+}
+
+#recommendation-confidence {
+  color: var(--good);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#recommendation-summary {
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+#recommendation-actions {
+  margin-top: 10px;
+}
+
 .heroes, .board-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

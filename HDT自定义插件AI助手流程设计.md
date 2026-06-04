@@ -598,3 +598,478 @@ data/replays/replay_test_report.md
 ```
 
 边界保持不变：插件只采集 HDT 已解析的公开实体状态，不读取隐藏手牌，不自动攻击，不做自动出牌。
+
+## 14. 补充：合法动作和动作序列生成流程
+
+后续建议链路不应要求 AI 自己从原始局面里“猜”哪些动作合法。后端需要先根据公开状态生成合法动作和候选动作序列，再让 AI 在候选空间内做策略选择。
+
+核心原则：
+
+```text
+代码负责硬规则和合法性。
+AI 负责策略排序、复杂卡牌文本理解和解释。
+代码最后再次校验 AI 输出。
+```
+
+### 14.1 合法动作生成流程
+
+```text
+1. 输入 EnrichedGameState
+2. 读取 my_mana.current 作为 available_mana
+3. 读取我方手牌、我方场面、敌方场面、双方英雄状态
+4. 生成 play_card 候选
+5. 生成 minion_attack 候选
+6. 生成 hero_attack 候选
+7. 生成 hero_power 候选
+8. 预留 activate_ability 候选
+9. 固定加入 end_turn
+10. 输出 legal_actions
+```
+
+`legal_actions` 建议结构：
+
+```json
+{
+  "play_card": [],
+  "minion_attack": [],
+  "hero_attack": [],
+  "hero_power": [],
+  "activate_ability": [],
+  "end_turn": [
+    {
+      "type": "end_turn"
+    }
+  ]
+}
+```
+
+### 14.2 play_card 合法性流程
+
+```text
+1. 遍历 hand
+2. 检查 card.cost <= available_mana
+3. 如果是随从牌，检查我方场面是否少于 7 个随从
+4. 如果是需要目标的牌，根据卡牌文本和目标规则生成 possible_targets
+5. 如果不需要目标，possible_targets 为空
+6. 输出 play_card action
+```
+
+示例：
+
+```json
+{
+  "type": "play_card",
+  "source": 42,
+  "card_id": "CS2_029",
+  "name": "Fireball",
+  "cost": 4,
+  "target_required": true,
+  "possible_targets": ["enemy_hero", 101, 102],
+  "effect_summary": {
+    "kind": "damage",
+    "damage": 6
+  }
+}
+```
+
+第一阶段不需要完整模拟所有战吼、亡语、发现和随机效果，但需要把卡牌 `text`、费用、类型、候选目标和粗粒度效果给到 AI。
+
+### 14.3 minion_attack 合法性流程
+
+```text
+1. 遍历 my_board
+2. 检查 can_attack = true
+3. 检查 attacks_remaining > 0
+4. 检查 attack > 0
+5. 排除 frozen、dormant、immune、cant_attack、exhausted
+6. 读取 enemy_board 中可被攻击的随从
+7. 如果敌方存在 taunt，只允许攻击 taunt 随从
+8. 如果敌方不存在 taunt，允许攻击可见随从和非免疫敌方英雄
+9. 输出 minion_attack action
+```
+
+示例：
+
+```json
+{
+  "type": "minion_attack",
+  "source": 100,
+  "target": 201,
+  "damage": 3,
+  "target_type": "minion"
+}
+```
+
+### 14.4 hero_attack 合法性流程
+
+```text
+1. 检查 my_hero.attack > 0
+2. 检查 my_hero.can_attack = true
+3. 检查 my_hero.attacks_remaining > 0
+4. 排除 frozen、immune
+5. 按嘲讽规则生成目标
+6. 输出 hero_attack action
+7. 在 action 中标记 self_damage_risk，供 AI 判断是否值得撞怪
+```
+
+示例：
+
+```json
+{
+  "type": "hero_attack",
+  "source": "my_hero",
+  "target": 201,
+  "damage": 3,
+  "self_damage_risk": 5
+}
+```
+
+### 14.5 hero_power 合法性流程
+
+```text
+1. 检查 remaining_mana >= 2
+2. 检查本回合英雄技能是否已使用
+3. 根据职业生成目标候选
+4. 默认 priority = low
+5. 如果能补足斩杀、补刀、回血保命或抽牌找关键牌，可以在 heuristics 中提高价值
+```
+
+示例：
+
+```json
+{
+  "type": "hero_power",
+  "source": "my_hero_power",
+  "cost": 2,
+  "target": "enemy_hero",
+  "damage": 1,
+  "priority": "low"
+}
+```
+
+### 14.6 activate_ability 预留流程
+
+`activate_ability` 用于泰坦技能、地点技能和其他可激活实体能力。第一阶段可以只预留结构，不要求完整实现。
+
+后续实现时流程为：
+
+```text
+1. 扫描 my_board 和可见可激活实体
+2. 判断 ability 是否可用
+3. 判断本回合是否已经使用
+4. 生成 possible_targets
+5. 输出 activate_ability action
+```
+
+示例：
+
+```json
+{
+  "type": "activate_ability",
+  "source": 300,
+  "ability_id": "titan_1",
+  "possible_targets": [201, "enemy_hero"]
+}
+```
+
+### 14.7 动作序列生成流程
+
+动作序列必须考虑法力水晶、手牌消耗、攻击次数、英雄技能使用状态和目标合法性，不能简单把动作随意排列。
+
+建议流程：
+
+```text
+1. 输入 legal_actions 和 EnrichedGameState
+2. 初始化 sequence_state：
+   - remaining_mana = my_mana.current
+   - used_hand_entities = []
+   - used_attack_counts = {}
+   - hero_power_used = false
+   - board_slots = 当前我方场面数量
+3. 先枚举费用范围内的 play_card 组合
+4. 对每个出牌组合更新 remaining_mana、used_hand_entities 和 board_slots
+5. 在更新后的序列状态上追加 minion_attack / hero_attack 候选
+6. 如果 remaining_mana >= 2 且 hero_power 未使用，再追加 hero_power 候选
+7. 始终保留 end_turn
+8. 对每条序列计算粗粒度 heuristics
+9. 限制输出数量，保留价值最高的序列给 Prompt
+```
+
+序列状态示例：
+
+```json
+{
+  "remaining_mana": 3,
+  "used_hand_entities": [42],
+  "used_attack_counts": {
+    "100": 1
+  },
+  "hero_power_used": false,
+  "board_slots": 4
+}
+```
+
+候选序列示例：
+
+```json
+{
+  "type": "sequence",
+  "sequence_id": "seq-001",
+  "total_cost": 6,
+  "remaining_mana": 0,
+  "actions": [
+    {
+      "type": "play_card",
+      "source": 42,
+      "target": "enemy_hero"
+    },
+    {
+      "type": "minion_attack",
+      "source": 100,
+      "target": "enemy_hero"
+    },
+    {
+      "type": "hero_power",
+      "target": "enemy_hero"
+    }
+  ],
+  "heuristics": {
+    "enemy_hero_damage": 9,
+    "clears_taunt": false,
+    "spends_all_mana": true,
+    "protects_my_hero": false
+  }
+}
+```
+
+### 14.8 序列合法性约束
+
+生成和校验动作序列时必须满足：
+
+- `total_cost <= my_mana.current`。
+- 同一手牌实体不能在同一序列中重复打出。
+- 打出随从牌后，我方场面不能超过 7 个随从。
+- 同一攻击者使用次数不能超过 `attacks_remaining`。
+- 英雄技能同一序列最多使用一次。
+- 敌方有嘲讽且序列尚未处理嘲讽时，不能攻击敌方英雄。
+- 攻击目标不能是潜行、免疫、休眠或不存在的实体。
+- AI 返回的动作目标必须在对应动作的 `possible_targets` 中。
+- `end_turn` 只能作为序列最后一步。
+
+第一阶段可以不完整模拟复杂触发效果，但不允许违反这些硬规则。
+
+### 14.9 序列筛选原则
+
+不应把所有组合都塞给 AI。后端应限制数量并优先保留：
+
+```text
+1. 可能斩杀的序列
+2. 能先处理嘲讽再打脸的序列
+3. 能解高威胁随从的序列
+4. 能保护己方低血量英雄的序列
+5. 能保持或提升场攻的序列
+6. 能合理用完费用的序列
+7. 能过牌寻找关键牌的序列
+8. 资源保留价值较高的 end_turn 或低动作序列
+```
+
+建议限制：
+
+```text
+max_card_combinations = 128
+max_sequences_for_prompt = 20
+max_actions_per_sequence = 6
+```
+
+### 14.10 Prompt 构造流程补充
+
+Prompt 不应只包含原始 `GameState`。应包含：
+
+```text
+1. 当前局面摘要
+2. 手牌和场面卡牌文本
+3. constraints
+4. legal_actions
+5. legal_sequences
+6. heuristics
+7. 策略原则
+8. 安全边界
+```
+
+策略原则固定写入：
+
+```text
+只能从 legal_actions 或 legal_sequences 中选择动作。
+如果存在明确斩杀，优先斩杀。
+如果敌方有嘲讽，不能推荐直接攻击英雄，除非序列已经先处理嘲讽。
+出牌和英雄技能必须满足费用限制。
+通常先考虑手牌能否制造斩杀、解场、回血或形成强节奏。
+然后考虑随从和英雄攻击。
+英雄技能一般低优先级，除非补足斩杀、补刀、保命、抽牌或费用正好剩余。
+如果己方血量危险，优先防守。
+如果当前局面明显偏抢血/斩杀，可以降低普通随从交换优先级。
+不能声称知道对手隐藏手牌。
+不能建议自动操作客户端。
+```
+
+### 14.11 AI 输出校验流程
+
+```text
+1. 解析 AI 输出 JSON
+2. 检查 chosen_sequence_id 是否存在
+3. 如果 AI 输出自定义 actions，则逐项匹配 legal_actions
+4. 重新计算费用、目标、攻击次数、英雄技能使用状态
+5. 检查是否违反隐藏信息和自动操作边界
+6. 通过则 validation_status = passed
+7. 失败则 validation_status = failed，并进入 fallback 或重新请求 AI
+```
+
+校验失败记录示例：
+
+```json
+{
+  "validation_status": "failed",
+  "reason": "target enemy_hero is illegal while enemy taunt exists",
+  "source": "llm",
+  "fallback": "rule_engine"
+}
+```
+
+### 14.12 推荐输出结构补充
+
+后续 Recommendation 建议使用结构化动作，而不只是自然语言步骤：
+
+```json
+{
+  "summary": "当前可以通过手牌直伤加场攻建立斩杀。",
+  "plan": "lethal",
+  "chosen_sequence_id": "seq-001",
+  "actions": [
+    {
+      "type": "play_card",
+      "source": 42,
+      "target": "enemy_hero"
+    },
+    {
+      "type": "minion_attack",
+      "source": 100,
+      "target": "enemy_hero"
+    }
+  ],
+  "reasoning_summary": "火球术加随从攻击合计足够击杀敌方英雄。",
+  "risks": ["如果卡牌文本识别错误，需要人工复核。"],
+  "confidence": "medium",
+  "validation_status": "passed"
+}
+```
+
+UI 可以把结构化动作翻译成人类可读文本，但日志和回放测试应保留结构化动作，便于校验。
+
+### 14.13 当前运行流程修订：先枚举，再交给 AI 决策
+
+当前版本不再执行后端推荐逻辑。流程改为：
+
+```text
+1. HDT 插件采集公开对局状态
+2. 后端 StateStore 保存最新状态
+3. 前端或 AI 调用 /api/recommendation
+4. RecommendationEngine 调用 ActionPlanner.generate(state)
+5. 后端返回 plan = "action_space"
+6. AI 从 details.action_space.legal_actions 或 legal_sequences 中选择路线
+7. 后端校验 AI 返回动作是否合法
+8. UI 展示 AI 选择和校验结果
+```
+
+也就是说，`/api/recommendation` 当前只是兼容旧命名的动作空间接口，不再代表“后端已经给出推荐”。
+
+当前后端返回示例：
+
+```json
+{
+  "plan": "action_space",
+  "summary": "Legal action space generated. AI must choose the final line.",
+  "actions": [],
+  "confidence": 0.0,
+  "details": {
+    "decision_owner": "ai",
+    "backend_scope": "legal_action_generation_only",
+    "action_space": {
+      "legal_actions": {
+        "play_card": [],
+        "minion_attack": [],
+        "hero_attack": [],
+        "hero_power": [
+          {
+            "type": "hero_power",
+            "source": "my_hero_power",
+            "cost": 2,
+            "hero_class": "MAGE",
+            "target_required": true,
+            "target": "enemy_hero",
+            "possible_targets": ["enemy_hero", 101, "my_hero"],
+            "damage": 1,
+            "effect": {
+              "kind": "damage",
+              "damage": 1
+            }
+          }
+        ],
+        "activate_ability": [],
+        "end_turn": [{"type": "end_turn"}]
+      },
+      "legal_sequences": []
+    }
+  }
+}
+```
+
+英雄技能处理也同步改为“所有基础职业英雄技能都枚举”。当法力不足时不生成英雄技能动作；当技能需要场面空位且我方场面已满时，该技能不属于当前合法动作。法师和牧师这类需要目标的技能会带 `possible_targets`；战士、术士、盗贼、德鲁伊、恶魔猎手等不需要目标的技能会通过 `effect.kind` 描述效果。
+
+AI 决策阶段必须遵守：
+
+- 只能选择后端给出的动作或序列。
+- 不能新造实体 ID、目标或费用。
+- 不能绕过嘲讽、潜行、休眠、免疫等硬规则。
+- 可以根据提示词原则判断“斩杀、解场、保血、抢血、节奏、资源”等优先级。
+- 后端只校验合法性，不替 AI 判断策略优劣。
+
+### 14.14 推荐日志写入流程修订
+
+动作空间是 AI 决策输入，不是最终推荐结果。因此当前流程中：
+
+```text
+/api/recommendation 返回 plan = "action_space"
+        ↓
+不写 recommendations.jsonl
+        ↓
+AI 选择具体打法
+        ↓
+后端校验动作合法性
+        ↓
+校验通过后才写 recommendations.jsonl
+```
+
+这意味着网页端可以继续频繁请求动作空间，但不会再把每次请求都写成推荐日志。推荐日志只用于保存 AI 最终给出的打法，例如 `chosen_sequence_id`、具体 `actions`、理由、风险和校验结果。
+
+### 14.15 HDT 接入过滤流程
+
+为避免 HDT 重发历史记录导致日志时间线混乱，`/ws/hdt` 当前在写日志前执行过滤：
+
+```text
+HDT WebSocket 消息
+        ↓
+基础 JSON 校验
+        ↓
+IngestFilter.accept(envelope)
+        ↓
+通过：StateStore.apply → ReplayWriter.write → UI broadcast
+丢弃：返回 ack filtered=true，不写日志，不刷新 UI
+```
+
+过滤器维护当前对局的最高回合数：
+
+- 如果同一 `game_id` 中已经看到 `turn = 5`，之后又收到 `turn = 0/1/2/3/4` 的状态或事件，会被视为历史回放并丢弃。
+- 如果收到 `game_started`，过滤器重置，允许新对局从 `turn = 0/1` 开始。
+- 事件指纹不包含 `timestamp`，因为历史回放事件可能会带新的接收时间，但事件本身相同。
+
+这个规则解决的是“旧时间线重新写入当前对局目录”的问题。它不会完整判断所有炉石事件是否合法，只负责保护日志顺序和去重。

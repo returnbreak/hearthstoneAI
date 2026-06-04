@@ -125,10 +125,7 @@ namespace HdtAiAssistantPlugin
         /// <summary>对局开始时生成新 GameId 并上报事件。</summary>
         private void OnGameStart()
         {
-            _gameId = CreateGameId();
-            _inGame = true;
-            var evt = _eventCollector.CreateLifecycleEvent(_gameId, ReadTurn(), "game_started");
-            RecordAndPublish(evt, RecommendationTrigger.GameStarted);
+            StartGameIfNeeded("hdt_game_start");
         }
 
         /// <summary>对局结束时上报事件。</summary>
@@ -162,8 +159,7 @@ namespace HdtAiAssistantPlugin
         /// </summary>
         private void OnTurnStart(ActivePlayer activePlayer)
         {
-            if(!_inGame)
-                return;
+            StartGameIfNeeded("implicit_turn_start");
 
             var player = activePlayer == ActivePlayer.Player ? "me" : activePlayer == ActivePlayer.Opponent ? "opponent" : "unknown";
             var trigger = activePlayer == ActivePlayer.Player
@@ -176,8 +172,7 @@ namespace HdtAiAssistantPlugin
         /// <summary>通用卡牌事件处理（抽牌、出牌、弃牌等）。</summary>
         private void OnCardEvent(string player, string type, Card card)
         {
-            if(!_inGame)
-                return;
+            StartGameIfNeeded("implicit_card_event");
 
             var evt = _eventCollector.CreateCardEvent(_gameId, ReadTurn(), player, type, card);
             RecordAndPublish(evt, RecommendationTrigger.SignificantStateChange);
@@ -201,6 +196,17 @@ namespace HdtAiAssistantPlugin
             {
                 PluginLog.Error(ex);
             }
+        }
+
+        private void StartGameIfNeeded(string reason)
+        {
+            if(_inGame)
+                return;
+
+            _gameId = CreateGameId();
+            _inGame = true;
+            var evt = _eventCollector.CreateLifecycleEvent(_gameId, ReadTurn(), "game_started", reason, null);
+            RecordAndPublish(evt, RecommendationTrigger.GameStarted);
         }
 
         private void RecordAndPublishEventOnly(GameEvent gameEvent)

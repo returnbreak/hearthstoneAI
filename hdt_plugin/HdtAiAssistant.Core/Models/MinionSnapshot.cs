@@ -6,6 +6,7 @@ namespace HdtAiAssistant.Core.Models
         public string CardId { get; set; }
         public int DbFId { get; set; }
         public string Name { get; set; }
+        public string Text { get; set; }
         public int Attack { get; set; }
         public int Health { get; set; }
         public int Damage { get; set; }

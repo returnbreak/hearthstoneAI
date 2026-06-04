@@ -154,6 +154,8 @@ namespace HdtAiAssistant.Tests
             AssertContains(transport.Payloads[0], "\"attacks_remaining\":1");
             AssertContains(transport.Payloads[0], "\"windfury\":true");
             AssertContains(transport.Payloads[0], "\"lifesteal\":true");
+            AssertContains(transport.Payloads[0], "\"text\":\"Deal 6 damage.\"");
+            AssertContains(transport.Payloads[0], "\"text\":\"Adjacent minions have +2 Attack.\"");
         }
 
         private static void EventEnvelopeIncludesGameEndReason()
@@ -204,7 +206,7 @@ namespace HdtAiAssistant.Tests
                 Mana = new ManaSnapshot { Current = 6, Max = 6 },
                 Hand =
                 {
-                    new CardSnapshot { EntityId = 42, CardId = "CS2_029", DbFId = 315, Name = "Fireball", Cost = 4, Type = "SPELL" }
+                    new CardSnapshot { EntityId = 42, CardId = "CS2_029", DbFId = 315, Name = "Fireball", Cost = 4, Type = "SPELL", Text = "Deal 6 damage." }
                 },
                 MyBoard =
                 {
@@ -214,6 +216,7 @@ namespace HdtAiAssistant.Tests
                         CardId = "EX1_565",
                         DbFId = 559,
                         Name = "Flametongue Totem",
+                        Text = "Adjacent minions have +2 Attack.",
                         Attack = 0,
                         Health = 3,
                         Damage = 0,

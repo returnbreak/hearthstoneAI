@@ -185,8 +185,28 @@ namespace HdtAiAssistantPlugin
                 Name = entity.LocalizedName ?? entity.Name,
                 Cost = entity.Cost,
                 Type = entity.Card == null || entity.Card.TypeEnum == null ? "UNKNOWN" : entity.Card.TypeEnum.Value.ToString(),
+                Text = ReadCardText(entity),
                 Zone = entity.IsInHand ? "HAND" : entity.IsInDeck ? "DECK" : entity.IsInPlay ? "PLAY" : null
             };
+        }
+
+        private static string ReadCardText(Entity entity)
+        {
+            if(entity == null || entity.Card == null)
+                return null;
+
+            return ReadStringProperty(entity.Card, "Text")
+                ?? ReadStringProperty(entity.Card, "LocalizedText")
+                ?? ReadStringProperty(entity.Card, "CardTextInHand");
+        }
+
+        private static string ReadStringProperty(object instance, string propertyName)
+        {
+            var property = instance.GetType().GetProperty(propertyName);
+            if(property == null)
+                return null;
+
+            return property.GetValue(instance, null) as string;
         }
 
         /// <summary>将 HDT 实体转换为 MinionSnapshot，包含战斗相关关键字。</summary>
@@ -201,6 +221,7 @@ namespace HdtAiAssistantPlugin
                 CardId = entity.CardId,
                 DbFId = entity.Card == null ? 0 : entity.Card.DbfId,
                 Name = entity.LocalizedName ?? entity.Name,
+                Text = ReadCardText(entity),
                 Attack = entity.Attack,
                 Health = entity.Health,
                 Damage = entity.GetTag(GameTag.DAMAGE),

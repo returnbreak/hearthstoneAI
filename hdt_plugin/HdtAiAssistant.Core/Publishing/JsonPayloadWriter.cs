@@ -202,6 +202,7 @@ namespace HdtAiAssistant.Core.Publishing
             WriteProperty(builder, "name", card.Name, false);
             WriteProperty(builder, "cost", card.Cost, false);
             WriteProperty(builder, "type", card.Type, false);
+            WriteProperty(builder, "text", card.Text, false);
             WriteProperty(builder, "zone", card.Zone, false);
             WriteProperty(builder, "source", card.Source, false);
             builder.Append('}');
@@ -239,6 +240,7 @@ namespace HdtAiAssistant.Core.Publishing
             WriteProperty(builder, "card_id", minion.CardId, false);
             WriteProperty(builder, "dbf_id", minion.DbFId, false);
             WriteProperty(builder, "name", minion.Name, false);
+            WriteProperty(builder, "text", minion.Text, false);
             WriteProperty(builder, "attack", minion.Attack, false);
             WriteProperty(builder, "health", minion.Health, false);
             WriteProperty(builder, "damage", minion.Damage, false);

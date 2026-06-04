@@ -14,6 +14,7 @@ namespace HdtAiAssistant.Core.Publishing
     public sealed class WebSocketBackendTransport : IBackendTransport, IDisposable
     {
         private readonly Uri _endpoint;
+        private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
         private ClientWebSocket _socket;
 
         /// <summary>
@@ -35,14 +36,22 @@ namespace HdtAiAssistant.Core.Publishing
         /// <param name="cancellationToken">取消令牌。</param>
         public async Task SendAsync(string payload, CancellationToken cancellationToken)
         {
-            await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
+            await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
 
-            var bytes = Encoding.UTF8.GetBytes(payload ?? string.Empty);
-            await _socket.SendAsync(
-                new ArraySegment<byte>(bytes),
-                WebSocketMessageType.Text,
-                true,
-                cancellationToken).ConfigureAwait(false);
+                var bytes = Encoding.UTF8.GetBytes(payload ?? string.Empty);
+                await _socket.SendAsync(
+                    new ArraySegment<byte>(bytes),
+                    WebSocketMessageType.Text,
+                    true,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sendLock.Release();
+            }
         }
 
         /// <summary>释放 WebSocket 连接资源。</summary>
@@ -50,6 +59,7 @@ namespace HdtAiAssistant.Core.Publishing
         {
             if(_socket != null)
                 _socket.Dispose();
+            _sendLock.Dispose();
         }
 
         /// <summary>

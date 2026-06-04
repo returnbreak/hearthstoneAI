@@ -49,6 +49,9 @@ class ReplayWriter:
         if envelope_type == "game_event":
             self._append(envelope, "events.jsonl")
             return
+        if envelope_type == "recommendation":
+            self._append(envelope, "recommendations.jsonl")
+            return
         raise ValueError(f"Unsupported envelope type: {envelope_type}")
 
     def _append(self, envelope: Mapping[str, Any], filename: str) -> None:
@@ -72,6 +75,10 @@ class ReplayWriter:
 
     @staticmethod
     def _game_id(envelope: Mapping[str, Any]) -> str | None:
+        value = envelope.get("game_id")
+        if value:
+            return str(value)
+
         state = envelope.get("state")
         if isinstance(state, Mapping):
             value = state.get("game_id")
