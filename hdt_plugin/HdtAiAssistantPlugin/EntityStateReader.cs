@@ -4,6 +4,7 @@ using System.Linq;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Hearthstone;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
+using HdtAiAssistant.Core.Events;
 using HdtAiAssistant.Core.Models;
 
 namespace HdtAiAssistantPlugin
@@ -35,7 +36,6 @@ namespace HdtAiAssistantPlugin
                 ActivePlayer = ReadActivePlayer(game),
                 MyHero = ReadHero(game == null ? null : game.Player),
                 EnemyHero = ReadHero(game == null ? null : game.Opponent),
-                Mana = myMana,
                 MyMana = myMana,
                 EnemyMana = enemyMana,
                 MyDeckCount = game == null ? 0 : game.Player.DeckCount,
@@ -47,8 +47,10 @@ namespace HdtAiAssistantPlugin
             if(game == null)
                 return state;
 
+            var handCardIds = PowerLogHandTransformParser.ReadLatestHandCardIds(game.PowerLog);
+
             // 读取手牌（按区域位置排序）
-            foreach(var card in Sorted(game.Player.Hand).Select(ReadCard))
+            foreach(var card in Sorted(game.Player.Hand).Select(entity => ReadCard(entity, handCardIds)))
                 state.Hand.Add(card);
 
             // 读取我方战场随从（按区域位置排序）
@@ -104,9 +106,8 @@ namespace HdtAiAssistantPlugin
                 Hp = hero == null ? 0 : hero.Health,
                 Armor = hero == null ? 0 : hero.GetTag(GameTag.ARMOR),
                 Attack = hero == null ? 0 : hero.Attack,
-                CanAttack = CanAttack(hero),
                 AttacksThisTurn = ReadAttacksThisTurn(hero),
-                AttacksRemaining = ReadAttacksRemaining(hero),
+                MaxAttacksPerTurn = ReadMaxAttacksPerTurn(hero),
                 Immune = HasTag(hero, GameTag.IMMUNE),
                 Frozen = HasTag(hero, GameTag.FROZEN)
             };
@@ -174,8 +175,21 @@ namespace HdtAiAssistantPlugin
         /// <summary>将 HDT 实体转换为 CardSnapshot。</summary>
         private static CardSnapshot ReadCard(Entity entity)
         {
+            return ReadCard(entity, null);
+        }
+
+        private static CardSnapshot ReadCard(Entity entity, IDictionary<int, string> cardIdOverrides)
+        {
             if(entity == null)
                 return new CardSnapshot();
+
+            string cardIdOverride;
+            if(cardIdOverrides != null
+                && cardIdOverrides.TryGetValue(entity.Id, out cardIdOverride)
+                && PowerLogHandTransformParser.IsCoinCardId(cardIdOverride))
+            {
+                return ReadCoinCard(entity, cardIdOverride);
+            }
 
             return new CardSnapshot
             {
@@ -185,8 +199,21 @@ namespace HdtAiAssistantPlugin
                 Name = entity.LocalizedName ?? entity.Name,
                 Cost = entity.Cost,
                 Type = entity.Card == null || entity.Card.TypeEnum == null ? "UNKNOWN" : entity.Card.TypeEnum.Value.ToString(),
-                Text = ReadCardText(entity),
-                Zone = entity.IsInHand ? "HAND" : entity.IsInDeck ? "DECK" : entity.IsInPlay ? "PLAY" : null
+                Text = ReadCardText(entity)
+            };
+        }
+
+        private static CardSnapshot ReadCoinCard(Entity entity, string cardId)
+        {
+            return new CardSnapshot
+            {
+                EntityId = entity.Id,
+                CardId = cardId,
+                DbFId = 0,
+                Name = "幸运币",
+                Cost = 0,
+                Type = "SPELL",
+                Text = "在本回合中，获得一个法力水晶。"
             };
         }
 
@@ -226,9 +253,8 @@ namespace HdtAiAssistantPlugin
                 Health = entity.Health,
                 Damage = entity.GetTag(GameTag.DAMAGE),
                 ZonePosition = entity.ZonePosition,
-                CanAttack = CanAttack(entity),
                 AttacksThisTurn = ReadAttacksThisTurn(entity),
-                AttacksRemaining = ReadAttacksRemaining(entity),
+                MaxAttacksPerTurn = ReadMaxAttacksPerTurn(entity),
                 Taunt = entity.HasTag(GameTag.TAUNT),
                 DivineShield = entity.HasTag(GameTag.DIVINE_SHIELD),
                 Stealth = entity.HasTag(GameTag.STEALTH),
@@ -250,30 +276,9 @@ namespace HdtAiAssistantPlugin
             };
         }
 
-        private static bool CanAttack(Entity entity)
-        {
-            if(entity == null)
-                return false;
-            return entity.Attack > 0
-                && ReadAttacksRemaining(entity) > 0
-                && !entity.HasTag(GameTag.CANT_ATTACK)
-                && !entity.HasTag(GameTag.FROZEN)
-                && !entity.HasTag(GameTag.DORMANT)
-                && !entity.HasTag(GameTag.EXHAUSTED);
-        }
-
         private static int ReadAttacksThisTurn(Entity entity)
         {
             return entity == null ? 0 : entity.GetTag(GameTag.NUM_ATTACKS_THIS_TURN);
-        }
-
-        private static int ReadAttacksRemaining(Entity entity)
-        {
-            if(entity == null)
-                return 0;
-
-            var remaining = ReadMaxAttacksPerTurn(entity) - ReadAttacksThisTurn(entity);
-            return remaining < 0 ? 0 : remaining;
         }
 
         private static int ReadMaxAttacksPerTurn(Entity entity)
@@ -306,7 +311,6 @@ namespace HdtAiAssistantPlugin
                 .Select(group =>
                 {
                     var card = ReadCard(group.First());
-                    card.Source = "played";
                     return card;
                 })
                 .OrderBy(x => x.CardId);

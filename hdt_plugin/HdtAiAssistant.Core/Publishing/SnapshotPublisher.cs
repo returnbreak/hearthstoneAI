@@ -51,6 +51,12 @@ namespace HdtAiAssistant.Core.Publishing
             return SendAsync(payload, cancellationToken);
         }
 
+        public Task PublishGameMetadataAsync(GameMetadata metadata, CancellationToken cancellationToken)
+        {
+            var payload = JsonPayloadWriter.WriteGameMetadataEnvelope(metadata);
+            return SendAsync(payload, cancellationToken);
+        }
+
         /// <summary>通过传输层发送数据并更新可用性状态。</summary>
         private async Task SendAsync(string payload, CancellationToken cancellationToken)
         {

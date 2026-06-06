@@ -17,6 +17,8 @@ JSONL 格式（每行一个完整 JSON 对象，无缩进，无换行）：
 
 import json
 import re
+import threading
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -30,6 +32,7 @@ class ReplayWriter:
 
     def __init__(self, log_dir: Path):
         self.log_dir = Path(log_dir)
+        self._write_lock = threading.RLock()
         # 确保目录存在（包括上级目录）
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -44,15 +47,83 @@ class ReplayWriter:
         """
         envelope_type = envelope.get("type")
         if envelope_type == "game_state":
-            self._append(envelope, "game_state.jsonl")
+            self._write_dual(envelope, "game_state")
             return
         if envelope_type == "game_event":
-            self._append(envelope, "events.jsonl")
+            self._write_dual(envelope, "events")
             return
         if envelope_type == "recommendation":
-            self._append(envelope, "recommendations.jsonl")
+            self._write_dual(
+                self._compact_recommendation_envelope(envelope),
+                "recommendations",
+            )
+            return
+        if envelope_type == "ai_decision_attempt":
+            self._write_ai_decision_attempt(envelope)
+            return
+        if envelope_type == "game_metadata":
+            self._write_dual(envelope, "game_metadata")
             return
         raise ValueError(f"Unsupported envelope type: {envelope_type}")
+
+    def _write_ai_decision_attempt(self, envelope: Mapping[str, Any]) -> None:
+        compact = deepcopy(dict(envelope))
+        debug = compact.get("ai_debug")
+        if isinstance(debug, Mapping):
+            relative_path = self._ai_debug_relative_path(compact)
+            self._write_pretty(
+                self._compact_ai_debug(debug),
+                relative_path,
+                envelope=compact,
+            )
+
+    @staticmethod
+    def _compact_recommendation_envelope(
+        envelope: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        compact = deepcopy(dict(envelope))
+        recommendation = compact.get("recommendation")
+        if isinstance(recommendation, dict):
+            if recommendation.get("summary") == recommendation.get("reason"):
+                recommendation.pop("reason", None)
+            validation = recommendation.get("validation")
+            if (
+                isinstance(validation, dict)
+                and validation.get("validation_status") == "passed"
+            ):
+                validation.pop("reason", None)
+        return {
+            key: value
+            for key, value in compact.items()
+            if value is not None and value != [] and value != {}
+        }
+
+    @staticmethod
+    def _compact_ai_debug(debug: Mapping[str, Any]) -> dict[str, Any]:
+        compact = deepcopy(dict(debug))
+        request = compact.get("request")
+        if isinstance(request, dict):
+            request.pop("user_prompt", None)
+            model_request = request.get("model_request")
+            if isinstance(model_request, dict):
+                model_request.pop("messages", None)
+                model_request.pop("raw_response_content", None)
+                request["model_request"] = {
+                    key: value
+                    for key, value in model_request.items()
+                    if value is not None and value != [] and value != {}
+                }
+                if not request["model_request"]:
+                    request.pop("model_request", None)
+        response = compact.get("response")
+        if isinstance(response, dict):
+            response.pop("raw_model_content", None)
+        return compact
+
+    def _write_dual(self, envelope: Mapping[str, Any], basename: str) -> None:
+        with self._write_lock:
+            self._append(envelope, basename + ".jsonl")
+            self._append_pretty_array(envelope, basename + ".json")
 
     def _append(self, envelope: Mapping[str, Any], filename: str) -> None:
         """追加一行 JSON 到指定文件。
@@ -65,6 +136,51 @@ class ReplayWriter:
         with path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")))
             file.write("\n")
+
+    def _append_pretty_array(self, envelope: Mapping[str, Any], filename: str) -> None:
+        path = self._match_dir(envelope) / filename
+        records: list[Any] = []
+        if path.exists():
+            try:
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(existing, list):
+                    records = existing
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                records = []
+        records.append(deepcopy(dict(envelope)))
+        self._write_json_file(path, records)
+
+    def _write_pretty(
+        self,
+        payload: Mapping[str, Any],
+        filename: str | Path,
+        envelope: Mapping[str, Any] | None = None,
+    ) -> None:
+        match_envelope = envelope or payload
+        path = self._match_dir(match_envelope) / filename
+        with self._write_lock:
+            self._write_json_file(path, payload)
+
+    @staticmethod
+    def _write_json_file(path: Path, payload: Any) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = path.with_suffix(path.suffix + ".tmp")
+        temporary_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary_path.replace(path)
+
+    @staticmethod
+    def _ai_debug_relative_path(envelope: Mapping[str, Any]) -> Path:
+        turn = ReplayWriter._safe_component(str(envelope.get("turn") or "unknown"))
+        trigger = ReplayWriter._safe_component(str(envelope.get("trigger") or "unknown"))
+        generated_at = ReplayWriter._safe_component(str(envelope.get("generated_at") or "unknown"))
+        return Path("debug") / "ai_requests" / f"turn-{turn}-{trigger}-{generated_at}.json"
+
+    @staticmethod
+    def _safe_component(value: str) -> str:
+        return re.sub(r"[^A-Za-z0-9_.-]", "_", value)
 
     def _match_dir(self, envelope: Mapping[str, Any]) -> Path:
         game_id = self._game_id(envelope)

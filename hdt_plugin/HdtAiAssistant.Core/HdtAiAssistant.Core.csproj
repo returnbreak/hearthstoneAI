@@ -27,8 +27,14 @@
     <Reference Include="System.Net.WebSockets.Client" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Events\AttackEventFactory.cs" />
+    <Compile Include="Events\PowerLogHandTransformParser.cs" />
+    <Compile Include="Events\PowerLogTargetParser.cs" />
     <Compile Include="Models\CardSnapshot.cs" />
+    <Compile Include="Models\DeckCardMetadata.cs" />
+    <Compile Include="Models\EventTarget.cs" />
     <Compile Include="Models\GameEvent.cs" />
+    <Compile Include="Models\GameMetadata.cs" />
     <Compile Include="Models\GameState.cs" />
     <Compile Include="Models\HeroSnapshot.cs" />
     <Compile Include="Models\ManaSnapshot.cs" />

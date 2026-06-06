@@ -26,7 +26,6 @@ namespace HdtAiAssistant.Core.Throttling
             var builder = new StringBuilder();
             Append(builder, "turn", state.Turn);
             Append(builder, "active", state.ActivePlayer);
-            AppendMana(builder, "mana", state.Mana);
             AppendMana(builder, "my_mana", state.MyMana);
             AppendMana(builder, "enemy_mana", state.EnemyMana);
             AppendHero(builder, "my_hero", state.MyHero);
@@ -61,9 +60,8 @@ namespace HdtAiAssistant.Core.Throttling
                 builder.Append(hero.Hp).Append('|');
                 builder.Append(hero.Armor).Append('|');
                 builder.Append(hero.Attack).Append('|');
-                builder.Append(hero.CanAttack ? 1 : 0).Append('|');
                 builder.Append(hero.AttacksThisTurn).Append('|');
-                builder.Append(hero.AttacksRemaining).Append('|');
+                builder.Append(hero.MaxAttacksPerTurn).Append('|');
                 builder.Append(hero.Immune ? 1 : 0).Append('|');
                 builder.Append(hero.Frozen ? 1 : 0);
             }
@@ -116,9 +114,8 @@ namespace HdtAiAssistant.Core.Throttling
                     builder.Append(minion.Health).Append(':');
                     builder.Append(minion.Damage).Append(':');
                     builder.Append(minion.ZonePosition).Append(':');
-                    builder.Append(minion.CanAttack ? 1 : 0).Append(':');
                     builder.Append(minion.AttacksThisTurn).Append(':');
-                    builder.Append(minion.AttacksRemaining).Append(':');
+                    builder.Append(minion.MaxAttacksPerTurn).Append(':');
                     builder.Append(minion.Taunt ? 1 : 0).Append(':');
                     builder.Append(minion.DivineShield ? 1 : 0).Append(':');
                     builder.Append(minion.Stealth ? 1 : 0).Append(':');

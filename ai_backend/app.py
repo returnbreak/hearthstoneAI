@@ -22,7 +22,12 @@ HDT AI 助手后端入口——FastAPI 应用工厂。
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+import os
 
+from ai_backend.ai_decision.auto_trigger import TurnStartAiDecisionTrigger
+from ai_backend.ai_decision.clients import LangChainDeepSeekDecisionClient
+from ai_backend.ai_decision.routes import create_ai_decision_router
+from ai_backend.ai_decision.service import AiDecisionService
 from ai_backend.coach.recommendation_engine import RecommendationEngine
 from ai_backend.coach.routes import create_coach_router
 from ai_backend.core.config import LOG_DIR, STATIC_DIR
@@ -46,14 +51,26 @@ replay_writer = ReplayWriter(LOG_DIR)
 # BroadcastHub: WebSocket 广播中心——把状态变更推送给所有连接的 UI 客户端
 ui_hub = BroadcastHub()
 recommendation_engine = RecommendationEngine()
+ai_decision_service = AiDecisionService(recommendation_engine, LangChainDeepSeekDecisionClient.from_env())
+ai_turn_trigger = TurnStartAiDecisionTrigger(
+    ai_decision_service,
+    replay_writer,
+    enable_prewarm=str(os.environ.get("AI_DECISION_PREWARM", "true")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    },
+)
 
 # ── 注册路由 ───────────────────────────────────────────
 # /static/* — 前端静态文件（index.html 引用的 CSS、JS 等）
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # /ws/hdt、/api/state — HDT 插件数据接入
-app.include_router(create_ingest_router(state_store, replay_writer, ui_hub))
+app.include_router(create_ingest_router(state_store, replay_writer, ui_hub, ai_turn_trigger=ai_turn_trigger))
 app.include_router(create_coach_router(state_store, recommendation_engine, replay_writer))
+app.include_router(create_ai_decision_router(state_store, ai_decision_service, replay_writer))
 
 # /、/ws/ui — 前端页面与 UI WebSocket 推送
 app.include_router(create_ui_router(STATIC_DIR, state_store, ui_hub))

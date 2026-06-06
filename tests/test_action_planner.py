@@ -65,6 +65,77 @@ class ActionPlannerTests(unittest.TestCase):
         # 断言：所有组合的费用都不超过 4 点法力
         self.assertTrue(all(cost <= 4 for cost in combo_costs))
 
+    def test_coin_enables_playing_card_above_current_mana(self):
+        state = sample_state(
+            mana=7,
+            hand=[
+                {
+                    "entity_id": 88,
+                    "card_id": "TOY_COIN2",
+                    "name": "Coin",
+                    "cost": 0,
+                    "type": "SPELL",
+                    "text": "Gain 1 Mana Crystal this turn only.",
+                },
+                spell(52, "Deathwing", 8, "Battlecry: choose and cast a cataclysm."),
+                spell(41, "Naralex", 7, "Your first Dragon each turn costs (1)."),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+
+        sequence_names = [
+            [action.get("name") for action in sequence["actions"] if action["type"] == "play_card"]
+            for sequence in action_space["legal_sequences"]
+        ]
+        self.assertIn(["Coin", "Deathwing"], sequence_names)
+        deathwing_sequence = next(
+            sequence for sequence in action_space["legal_sequences"]
+            if ["Coin", "Deathwing"] == [
+                action.get("name") for action in sequence["actions"] if action["type"] == "play_card"
+            ]
+        )
+        self.assertEqual(0, deathwing_sequence["remaining_mana"])
+        self.assertTrue(deathwing_sequence["heuristics"]["uses_temporary_mana"])
+        self.assertEqual(["Deathwing"], deathwing_sequence["heuristics"]["high_impact_cards"])
+
+    def test_setup_only_spell_is_not_generated_without_spell_payoff(self):
+        state = sample_state(
+            mana=2,
+            hand=[
+                spell(34, "Preparation", 0, "The next spell you cast this turn costs (2) less."),
+                minion_card(40, "Glacial Shard", 1, "<b>Battlecry:</b> Freeze an enemy."),
+                spell(88, "Coin", 0, "Gain 1 Mana Crystal this turn only."),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+
+        sequence_names = [
+            [action.get("name") for action in sequence["actions"] if action["type"] == "play_card"]
+            for sequence in action_space["legal_sequences"]
+        ]
+        self.assertTrue(all("Preparation" not in names for names in sequence_names))
+
+    def test_low_impact_coin_sequences_are_not_prompted_before_normal_development(self):
+        state = sample_state(
+            mana=2,
+            hand=[
+                spell(88, "Coin", 0, "Gain 1 Mana Crystal this turn only."),
+                minion_card(10, "Omen Setup", 3, "Deathrattle: Omen."),
+                minion_card(11, "Small Minion", 1, "Battlecry: Freeze an enemy."),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+        first_cards = [
+            action.get("name")
+            for action in action_space["legal_sequences"][0]["actions"]
+            if action["type"] == "play_card"
+        ]
+
+        self.assertNotIn("Coin", first_cards)
+
     def test_includes_low_priority_hero_power_when_affordable(self):
         """
         测试英雄技能——猎人技能在法力足够时可用。
@@ -156,7 +227,7 @@ class ActionPlannerTests(unittest.TestCase):
 
         # 断言：六种操作分类全部存在
         self.assertEqual(
-            ["activate_ability", "end_turn", "hero_attack", "hero_power", "minion_attack", "play_card"],
+            ["activate_ability", "end_turn", "hero_attack", "hero_power", "minion_attack", "play_card", "trade_card"],
             sorted(action_space["legal_actions"].keys()),
         )
         # 断言：出牌操作的 source 正确
@@ -222,6 +293,118 @@ class ActionPlannerTests(unittest.TestCase):
             any(action["type"] == "hero_power" for action in sequence["actions"])
             for sequence in action_space["legal_sequences"]
         ))
+
+    def test_includes_trade_card_action_for_tradeable_cards(self):
+        state = sample_state(
+            mana=1,
+            hand=[spell(10, "Tradeable Removal", 2, "<b>可交易</b> 消灭一个随从。")],
+        )
+
+        action_space = ActionPlanner().generate(state)
+
+        self.assertEqual([], action_space["legal_actions"]["play_card"])
+        self.assertEqual("trade_card", action_space["legal_actions"]["trade_card"][0]["type"])
+        self.assertEqual(1, action_space["legal_actions"]["trade_card"][0]["cost"])
+        self.assertTrue(any(
+            any(action["type"] == "trade_card" for action in sequence["actions"])
+            for sequence in action_space["legal_sequences"]
+        ))
+
+    def test_weapon_card_sequence_does_not_append_rogue_hero_power(self):
+        state = sample_state(
+            mana=4,
+            hero_class="ROGUE",
+            hand=[weapon(10, "Kingslayer", 2, 2, 2, "After your hero attacks, draw a Legendary card.")],
+        )
+
+        action_space = ActionPlanner().generate(state)
+        weapon_sequences = [
+            sequence for sequence in action_space["legal_sequences"]
+            if any(action.get("card_id") == "WEAPON_10" for action in sequence["actions"])
+        ]
+
+        self.assertTrue(weapon_sequences)
+        self.assertTrue(all(
+            all(action["type"] != "hero_power" for action in sequence["actions"])
+            for sequence in weapon_sequences
+        ))
+        self.assertTrue(any(
+            any(action["type"] == "hero_attack" and action.get("source") == "my_hero" for action in sequence["actions"])
+            for sequence in weapon_sequences
+        ))
+
+    def test_legal_sequence_uses_each_attacker_at_most_once(self):
+        state = sample_state(
+            mana=2,
+            hand=[],
+            my_board=[
+                minion(1, attack=4, health=4, can_attack=True),
+                minion(2, attack=2, health=2, can_attack=True),
+            ],
+            enemy_board=[
+                minion(10, attack=3, health=2),
+                minion(11, attack=2, health=3),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+
+        for sequence in action_space["legal_sequences"]:
+            attack_sources = [
+                action["source"]
+                for action in sequence["actions"]
+                if action["type"] in {"minion_attack", "hero_attack"}
+            ]
+            self.assertEqual(len(attack_sources), len(set(attack_sources)), sequence)
+
+    def test_skips_fully_unknown_hand_cards_for_play_sequences(self):
+        state = sample_state(
+            mana=3,
+            hand=[
+                {"entity_id": 99, "cost": 3, "type": "SPELL"},
+                spell(10, "Known Spell", 2, "Deal 2 damage."),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+
+        playable_sources = [action["source"] for action in action_space["playable_cards"]]
+        sequence_sources = [
+            action.get("source")
+            for sequence in action_space["legal_sequences"]
+            for action in sequence["actions"]
+            if action["type"] == "play_card"
+        ]
+        self.assertNotIn(99, playable_sources)
+        self.assertNotIn(99, sequence_sources)
+        self.assertIn(10, playable_sources)
+
+    def test_prompt_sequences_cover_all_playable_cards_before_attack_variants(self):
+        state = sample_state(
+            mana=3,
+            hand=[
+                spell(10, "One", 1, "Deal 1 damage."),
+                spell(11, "Two", 1, "Deal 1 damage."),
+                spell(12, "Three", 1, "Deal 1 damage."),
+                spell(13, "Late Expensive Card", 3, "Deal 3 damage."),
+            ],
+            my_board=[minion(1, attack=2, health=2, can_attack=True)],
+            enemy_board=[
+                minion(20, attack=1, health=1),
+                minion(21, attack=1, health=1),
+            ],
+        )
+
+        action_space = ActionPlanner().generate(state)
+        covered_sources = {
+            action["source"]
+            for sequence in action_space["legal_sequences"]
+            for action in sequence["actions"]
+            if action["type"] == "play_card"
+        }
+
+        self.assertEqual(10, len(action_space["legal_sequences"]))
+        self.assertTrue({10, 11, 12, 13}.issubset(covered_sources))
 
 
 # ============================================================================
@@ -444,6 +627,42 @@ class RecommendationValidatorTests(unittest.TestCase):
         self.assertEqual("failed", result["validation_status"])
         self.assertIn("not in legal_actions", result["reason"])
 
+    def test_rejects_sequence_that_kills_own_hero(self):
+        action_space = {
+            "hero_hp": 4,
+            "legal_sequences": [
+                {
+                    "sequence_id": "seq-suicide",
+                    "actions": [
+                        {
+                            "type": "hero_attack",
+                            "source": "my_hero",
+                            "target": 99,
+                            "damage": 2,
+                            "self_damage_risk": 6,
+                        }
+                    ],
+                }
+            ],
+            "legal_actions": {
+                "hero_attack": [
+                    {
+                        "type": "hero_attack",
+                        "source": "my_hero",
+                        "target": 99,
+                        "damage": 2,
+                        "self_damage_risk": 6,
+                    }
+                ]
+            },
+        }
+        recommendation = {"chosen_sequence_id": "seq-suicide"}
+
+        result = RecommendationValidator().validate(recommendation, action_space)
+
+        self.assertEqual("failed", result["validation_status"])
+        self.assertIn("hero death", result["reason"])
+
 
 # ============================================================================
 # 测试辅助工厂函数
@@ -470,7 +689,15 @@ def sample_state(mana, hand, enemy_hero=None, my_board=None, enemy_board=None, h
     return {
         "turn": 6,  # 第 6 回合，游戏中期
         "my_mana": {"current": mana, "max": mana},
-        "my_hero": {"class": hero_class, "hp": 20, "armor": 0, "attack": 0, "can_attack": False},
+        "my_hero": {
+            "class": hero_class,
+            "hp": 20,
+            "armor": 0,
+            "attack": 0,
+            "attacks_this_turn": 0,
+            "max_attacks_per_turn": 1,
+            "frozen": False,
+        },
         "enemy_hero": enemy_hero or {"hp": 30, "armor": 0, "immune": False},
         "my_board": my_board or [],
         "enemy_board": enemy_board or [],
@@ -501,6 +728,30 @@ def spell(entity_id, name, cost, text):
     }
 
 
+def minion_card(entity_id, name, cost, text):
+    return {
+        "entity_id": entity_id,
+        "card_id": f"TEST_MINION_{entity_id}",
+        "name": name,
+        "cost": cost,
+        "type": "MINION",
+        "text": text,
+    }
+
+
+def weapon(entity_id, name, cost, attack, durability, text):
+    return {
+        "entity_id": entity_id,
+        "card_id": f"WEAPON_{entity_id}",
+        "name": name,
+        "cost": cost,
+        "type": "WEAPON",
+        "attack": attack,
+        "durability": durability,
+        "text": text,
+    }
+
+
 def minion(entity_id, attack, health, can_attack=False, text=None, taunt=False):
     """
     创建一个简化版的随从实体字典，用于测试。
@@ -512,7 +763,7 @@ def minion(entity_id, attack, health, can_attack=False, text=None, taunt=False):
         entity_id:  随从唯一标识符（整数）。
         attack:     攻击力。
         health:     生命值。
-        can_attack: 当前是否可以攻击（默认 False，模拟刚被召唤的随从）。
+        can_attack: 是否准备好攻击（测试辅助参数）。
         text:       随从的卡牌描述文本（用于效果识别，如 "Spell Damage +1"）。
         taunt:      是否具有嘲讽属性（默认 False）。
 
@@ -527,8 +778,9 @@ def minion(entity_id, attack, health, can_attack=False, text=None, taunt=False):
         "attack": attack,
         "health": health,
         "damage": 0,            # 尚未受到伤害
-        "can_attack": can_attack,
-        "attacks_remaining": 1 if can_attack else 0,  # 可攻击则剩余 1 次
+        "attacks_this_turn": 0 if can_attack else 1,
+        "max_attacks_per_turn": 1,
+        "exhausted": not can_attack,
         "taunt": taunt,
         "stealth": False,       # 无潜行
         "immune": False,        # 非免疫

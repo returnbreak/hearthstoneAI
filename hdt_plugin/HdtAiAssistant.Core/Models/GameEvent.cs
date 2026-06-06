@@ -16,19 +16,16 @@ namespace HdtAiAssistant.Core.Models
         /// <summary>事件类型（如 card_played、card_drawn、turn_started）。</summary>
         public string Type { get; set; }
         /// <summary>关联的实体 ID。</summary>
-        public int EntityId { get; set; }
+        public int? EntityId { get; set; }
         /// <summary>关联的卡牌 ID。</summary>
         public string CardId { get; set; }
         /// <summary>关联的数据库卡牌 ID。</summary>
         public int DbFId { get; set; }
         /// <summary>卡牌名称。</summary>
         public string Name { get; set; }
-        /// <summary>卡牌来源区域（移动前所在区域）。</summary>
-        public string ZoneFrom { get; set; }
-        /// <summary>卡牌目标区域（移动后所在区域）。</summary>
-        public string ZoneTo { get; set; }
-        /// <summary>事件目标实体 ID（如法术目标）。</summary>
-        public int TargetEntityId { get; set; }
+        /// <summary>事件目标；无目标时为 null。</summary>
+        public EventTarget Target { get; set; }
+        public int DamageAmount { get; set; }
         public string Reason { get; set; }
         public string Result { get; set; }
     }

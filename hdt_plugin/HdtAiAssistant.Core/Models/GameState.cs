@@ -13,7 +13,6 @@ namespace HdtAiAssistant.Core.Models
         {
             MyHero = new HeroSnapshot();
             EnemyHero = new HeroSnapshot();
-            Mana = new ManaSnapshot();
             MyMana = new ManaSnapshot();
             EnemyMana = new ManaSnapshot();
             Hand = new List<CardSnapshot>();
@@ -38,7 +37,6 @@ namespace HdtAiAssistant.Core.Models
         /// <summary>敌方英雄状态。</summary>
         public HeroSnapshot EnemyHero { get; set; }
         /// <summary>当前法力水晶状态。</summary>
-        public ManaSnapshot Mana { get; set; }
         public ManaSnapshot MyMana { get; set; }
         public ManaSnapshot EnemyMana { get; set; }
         /// <summary>我方手牌列表。</summary>

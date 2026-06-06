@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using HdtAiAssistant.Core.Events;
 using HdtAiAssistant.Core.Models;
 using HdtAiAssistant.Core.Publishing;
 using HdtAiAssistant.Core.Throttling;
@@ -27,6 +28,14 @@ namespace HdtAiAssistant.Tests
             RunAsync("publisher emits game_state envelopes", PublisherEmitsGameStateEnvelope);
             RunAsync("publisher emits combat fields", PublisherEmitsCombatFields);
             Run("event envelopes include game end reason", EventEnvelopeIncludesGameEndReason);
+            Run("event envelopes include attack target metadata", EventEnvelopeIncludesAttackTargetMetadata);
+            Run("event envelopes omit missing target fields", EventEnvelopeOmitsMissingTargetFields);
+            Run("power log target parser reads play target entity id", PowerLogTargetParserReadsPlayTargetEntityId);
+            Run("power log hand transform parser reads latest coin card id", PowerLogHandTransformParserReadsLatestCoinCardId);
+            Run("game metadata envelope includes deck cards", GameMetadataEnvelopeIncludesDeckCards);
+            RunAsync("publisher emits game metadata envelope", PublisherEmitsGameMetadataEnvelope);
+            Run("attack factory creates minion attack from real attack data", AttackFactoryCreatesMinionAttackFromRealAttackData);
+            Run("attack factory creates hero attack from real attack data", AttackFactoryCreatesHeroAttackFromRealAttackData);
             RunAsync("publisher records transport failures without throwing", PublisherRecordsTransportFailures);
 
             if(_failures > 0)
@@ -64,7 +73,7 @@ namespace HdtAiAssistant.Tests
         {
             var first = SampleState();
             var second = SampleState();
-            second.Mana.Current = 1;
+            second.MyMana.Current = 1;
             var third = SampleState();
             third.Hand.Add(new CardSnapshot { EntityId = 9, CardId = "EX1_277", DbFId = 5, Name = "Arcane Missiles", Cost = 1, Type = "SPELL" });
 
@@ -141,6 +150,11 @@ namespace HdtAiAssistant.Tests
             AssertContains(transport.Payloads[0], "\"type\":\"game_state\"");
             AssertContains(transport.Payloads[0], "\"trigger\":\"my_turn_started\"");
             AssertContains(transport.Payloads[0], "\"card_id\":\"CS2_029\"");
+            AssertContains(transport.Payloads[0], "\"my_mana\":{\"current\":6,\"max\":6}");
+            AssertContains(transport.Payloads[0], "\"enemy_mana\":{\"current\":5,\"max\":5}");
+            AssertNotContains(transport.Payloads[0], "\"mana\":");
+            AssertNotContains(transport.Payloads[0], "\"zone\":");
+            AssertNotContains(transport.Payloads[0], "\"source\":");
         }
 
         private static async Task PublisherEmitsCombatFields()
@@ -150,8 +164,10 @@ namespace HdtAiAssistant.Tests
 
             await publisher.PublishGameStateAsync(SampleState(), RecommendationTrigger.MyTurnStarted, CancellationToken.None);
 
-            AssertContains(transport.Payloads[0], "\"can_attack\":true");
-            AssertContains(transport.Payloads[0], "\"attacks_remaining\":1");
+            AssertContains(transport.Payloads[0], "\"attacks_this_turn\":0");
+            AssertContains(transport.Payloads[0], "\"max_attacks_per_turn\":2");
+            AssertNotContains(transport.Payloads[0], "\"can_attack\"");
+            AssertNotContains(transport.Payloads[0], "\"attacks_remaining\"");
             AssertContains(transport.Payloads[0], "\"windfury\":true");
             AssertContains(transport.Payloads[0], "\"lifesteal\":true");
             AssertContains(transport.Payloads[0], "\"text\":\"Deal 6 damage.\"");
@@ -174,6 +190,200 @@ namespace HdtAiAssistant.Tests
             AssertContains(payload, "\"type\":\"game_conceded\"");
             AssertContains(payload, "\"reason\":\"conceded\"");
             AssertContains(payload, "\"result\":\"loss\"");
+        }
+
+        private static void EventEnvelopeIncludesAttackTargetMetadata()
+        {
+            var payload = JsonPayloadWriter.WriteGameEventEnvelope(new GameEvent
+            {
+                GameId = "game-1",
+                Timestamp = "2026-06-03T11:30:00+08:00",
+                Turn = 7,
+                Player = "me",
+                Type = "minion_attack",
+                EntityId = 100,
+                CardId = "EX1_565",
+                Name = "Flametongue Totem",
+                Target = new EventTarget
+                {
+                    EntityId = 101,
+                    CardId = "CS2_179",
+                    Name = "Sen'jin Shieldmasta",
+                    Type = "minion"
+                },
+                DamageAmount = 3
+            });
+
+            AssertContains(payload, "\"type\":\"minion_attack\"");
+            AssertContains(payload, "\"target\":{\"entity_id\":101,\"card_id\":\"CS2_179\",\"name\":\"Sen'jin Shieldmasta\",\"type\":\"minion\"}");
+            AssertNotContains(payload, "\"target_player\"");
+            AssertNotContains(payload, "\"target_is_hero\"");
+            AssertContains(payload, "\"damage_amount\":3");
+        }
+
+        private static void EventEnvelopeOmitsMissingTargetFields()
+        {
+            var payload = JsonPayloadWriter.WriteGameEventEnvelope(new GameEvent
+            {
+                GameId = "game-1",
+                Timestamp = "2026-06-05T18:00:00+08:00",
+                Turn = 3,
+                Player = "me",
+                Type = "turn_started"
+            });
+
+            AssertNotContains(payload, "\"target\"");
+            AssertNotContains(payload, "\"entity_id\"");
+            AssertNotContains(payload, "\"card_id\"");
+            AssertNotContains(payload, "\"dbf_id\"");
+            AssertNotContains(payload, "\"name\"");
+            AssertNotContains(payload, "\"damage_amount\"");
+            AssertNotContains(payload, "\"reason\"");
+            AssertNotContains(payload, "\"result\"");
+        }
+
+        private static void PowerLogTargetParserReadsPlayTargetEntityId()
+        {
+            var lines = new[]
+            {
+                "D 15:45:04.900 BLOCK_START BlockType=PLAY Entity=[entityName=初始之火 id=103 zone=HAND zonePos=4 cardId=CORE_SW_108 player=1] EffectCardId= Target=[entityName=火色魔印奔行者 id=107 zone=PLAY zonePos=1 cardId=CORE_BT_480 player=2] SubOption=-1",
+                "D 15:45:04.901 TAG_CHANGE Entity=[entityName=火色魔印奔行者 id=107 zone=PLAY zonePos=1 cardId=CORE_BT_480 player=2] tag=DAMAGE value=2",
+                "D 15:45:05.000 BLOCK_START BlockType=PLAY Entity=[entityName=其他法术 id=108 zone=HAND zonePos=3 cardId=OTHER_SPELL player=1] EffectCardId= Target=[entityName=初始之火 id=109 zone=PLAY zonePos=2 cardId=CORE_SW_108 player=2] SubOption=-1"
+            };
+
+            AssertEqual(107, PowerLogTargetParser.FindLatestPlayTargetEntityId(lines, "CORE_SW_108"));
+            AssertEqual(null, PowerLogTargetParser.FindLatestPlayTargetEntityId(lines, "CS2_029"));
+        }
+
+        private static void PowerLogHandTransformParserReadsLatestCoinCardId()
+        {
+            var lines = new[]
+            {
+                "D 17:43:20.000 FULL_ENTITY - Updating Entity=[entityName=半兽人迦罗娜 id=57 zone=HAND zonePos=5 cardId=TIME_875 player=1] CardID=TIME_875",
+                "D 17:43:27.900 SHOW_ENTITY - Updating Entity=[entityName=半兽人迦罗娜 id=57 zone=HAND zonePos=4 cardId=TIME_875 player=1] CardID=GAME_005",
+                "D 17:43:28.000 TAG_CHANGE Entity=[entityName=古神的眼线 id=63 zone=PLAY zonePos=3 cardId=CATA_200 player=1] tag=ZONE value=PLAY"
+            };
+
+            var cards = PowerLogHandTransformParser.ReadLatestHandCardIds(lines);
+
+            AssertEqual("GAME_005", cards[57]);
+        }
+
+        private static void GameMetadataEnvelopeIncludesDeckCards()
+        {
+            var metadata = new GameMetadata
+            {
+                GameId = "game-1",
+                CapturedAt = "2026-06-05T12:00:00+08:00",
+                DeckAvailable = true,
+                DeckId = "deck-1",
+                DeckName = "Test Deck",
+                PlayerClass = "MAGE",
+                Format = "standard"
+            };
+            metadata.Cards.Add(new DeckCardMetadata
+            {
+                CardId = "CS2_029",
+                DbFId = 315,
+                Name = "Fireball",
+                Cost = 4,
+                Type = "SPELL",
+                Count = 2
+            });
+
+            var payload = JsonPayloadWriter.WriteGameMetadataEnvelope(metadata);
+
+            AssertContains(payload, "\"type\":\"game_metadata\"");
+            AssertContains(payload, "\"deck_available\":true");
+            AssertContains(payload, "\"deck_id\":\"deck-1\"");
+            AssertContains(payload, "\"name\":\"Test Deck\"");
+            AssertContains(payload, "\"card_id\":\"CS2_029\"");
+            AssertContains(payload, "\"count\":2");
+        }
+
+        private static async Task PublisherEmitsGameMetadataEnvelope()
+        {
+            var transport = new RecordingTransport();
+            var publisher = new SnapshotPublisher(transport);
+            var metadata = new GameMetadata
+            {
+                GameId = "game-1",
+                CapturedAt = "2026-06-05T12:00:00+08:00",
+                DeckAvailable = false
+            };
+
+            await publisher.PublishGameMetadataAsync(metadata, CancellationToken.None);
+
+            AssertEqual(1, transport.Payloads.Count);
+            AssertContains(transport.Payloads[0], "\"type\":\"game_metadata\"");
+            AssertContains(transport.Payloads[0], "\"deck_available\":false");
+        }
+
+        private static void AttackFactoryCreatesMinionAttackFromRealAttackData()
+        {
+            var evt = AttackEventFactory.Create(
+                "game-1",
+                3,
+                "me",
+                new AttackParticipant
+                {
+                    EntityId = 100,
+                    CardId = "EX1_565",
+                    DbFId = 559,
+                    Name = "Flametongue Totem",
+                    Type = "MINION",
+                    Attack = 3
+                },
+                new AttackParticipant
+                {
+                    EntityId = 101,
+                    CardId = "CS2_179",
+                    DbFId = 90,
+                    Name = "Sen'jin Shieldmasta",
+                    Type = "MINION"
+                });
+
+            AssertEqual("game-1", evt.GameId);
+            AssertEqual(3, evt.Turn);
+            AssertEqual("me", evt.Player);
+            AssertEqual("minion_attack", evt.Type);
+            AssertEqual(100, evt.EntityId);
+            AssertEqual("EX1_565", evt.CardId);
+            AssertEqual(559, evt.DbFId);
+            AssertEqual("Flametongue Totem", evt.Name);
+            AssertEqual(101, evt.Target.EntityId);
+            AssertEqual("CS2_179", evt.Target.CardId);
+            AssertEqual("Sen'jin Shieldmasta", evt.Target.Name);
+            AssertEqual("minion", evt.Target.Type);
+            AssertEqual(3, evt.DamageAmount);
+        }
+
+        private static void AttackFactoryCreatesHeroAttackFromRealAttackData()
+        {
+            var evt = AttackEventFactory.Create(
+                "game-1",
+                4,
+                "opponent",
+                new AttackParticipant
+                {
+                    CardId = "HERO_05",
+                    Name = "Rexxar",
+                    Type = "HERO",
+                    Attack = 2
+                },
+                new AttackParticipant
+                {
+                    CardId = "HERO_08",
+                    Name = "Jaina Proudmoore",
+                    Type = "HERO"
+                });
+
+            AssertEqual("opponent", evt.Player);
+            AssertEqual("hero_attack", evt.Type);
+            AssertEqual("HERO_05", evt.CardId);
+            AssertEqual("Rexxar", evt.Name);
+            AssertEqual("hero", evt.Target.Type);
+            AssertEqual(2, evt.DamageAmount);
         }
 
         /// <summary>
@@ -201,12 +411,22 @@ namespace HdtAiAssistant.Tests
                 Mode = "standard",
                 Turn = 6,
                 ActivePlayer = "me",
-                MyHero = new HeroSnapshot { Class = "MAGE", Hp = 24, Armor = 0, Attack = 3, CanAttack = true, AttacksThisTurn = 0, AttacksRemaining = 1 },
-                EnemyHero = new HeroSnapshot { Class = "HUNTER", Hp = 17, Armor = 0, Attack = 0, CanAttack = false, AttacksThisTurn = 0, AttacksRemaining = 0 },
-                Mana = new ManaSnapshot { Current = 6, Max = 6 },
+                MyHero = new HeroSnapshot { Class = "MAGE", Hp = 24, Armor = 0, Attack = 3, AttacksThisTurn = 0, MaxAttacksPerTurn = 1 },
+                EnemyHero = new HeroSnapshot { Class = "HUNTER", Hp = 17, Armor = 0, Attack = 0, AttacksThisTurn = 0, MaxAttacksPerTurn = 1 },
+                MyMana = new ManaSnapshot { Current = 6, Max = 6 },
+                EnemyMana = new ManaSnapshot { Current = 5, Max = 5 },
                 Hand =
                 {
-                    new CardSnapshot { EntityId = 42, CardId = "CS2_029", DbFId = 315, Name = "Fireball", Cost = 4, Type = "SPELL", Text = "Deal 6 damage." }
+                    new CardSnapshot
+                    {
+                        EntityId = 42,
+                        CardId = "CS2_029",
+                        DbFId = 315,
+                        Name = "Fireball",
+                        Cost = 4,
+                        Type = "SPELL",
+                        Text = "Deal 6 damage."
+                    }
                 },
                 MyBoard =
                 {
@@ -221,9 +441,8 @@ namespace HdtAiAssistant.Tests
                         Health = 3,
                         Damage = 0,
                         ZonePosition = 1,
-                        CanAttack = true,
                         AttacksThisTurn = 0,
-                        AttacksRemaining = 1,
+                        MaxAttacksPerTurn = 2,
                         Windfury = true,
                         Lifesteal = true
                     }
@@ -307,6 +526,12 @@ namespace HdtAiAssistant.Tests
         {
             if(text == null || !text.Contains(expected))
                 throw new InvalidOperationException("Expected '" + text + "' to contain '" + expected + "'.");
+        }
+
+        private static void AssertNotContains(string text, string expected)
+        {
+            if(text != null && text.Contains(expected))
+                throw new InvalidOperationException("Expected '" + text + "' not to contain '" + expected + "'.");
         }
 
         /// <summary>解包 AggregateException，返回真正的内部异常以便输出清晰的错误消息。</summary>

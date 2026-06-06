@@ -23,7 +23,9 @@ class CardCatalog:
     @classmethod
     def from_latest_data(cls, root: Path | None = None) -> "CardCatalog":
         root = root or PROJECT_ROOT
-        index_path = root / "hearthstone_data" / "latest" / "card_index.zhCN.json"
+        index_path = root / "hearthstone_data" / "cards" / "card_index.zhCN.json"
+        if not index_path.exists():
+            index_path = root / "hearthstone_data" / "latest" / "card_index.zhCN.json"
         missing_report_path = root / "data" / "card_catalog_missing_ids.json"
         if not index_path.exists():
             return cls(missing_report_path=missing_report_path)
@@ -49,6 +51,14 @@ class CardCatalog:
             state = enriched.get("state")
             if isinstance(state, dict):
                 self.enrich_state(state)
+        elif envelope_type == "game_metadata":
+            deck = enriched.get("deck")
+            if isinstance(deck, dict):
+                cards = deck.get("cards")
+                if isinstance(cards, list):
+                    for card in cards:
+                        if isinstance(card, dict):
+                            self.enrich_card_like(card, "game_metadata.deck.cards")
         return enriched
 
     def enrich_state(self, state: dict[str, Any]) -> None:
@@ -89,6 +99,9 @@ class CardCatalog:
         self._fill_if_missing(value, "card_class", card.get("cardClass"))
         self._fill_if_missing(value, "rarity", card.get("rarity"))
         self._fill_if_missing(value, "text", card.get("text"))
+        self._fill_if_missing(value, "attack", card.get("attack"))
+        self._fill_if_missing(value, "health", card.get("health"))
+        self._fill_if_missing(value, "durability", card.get("durability"))
         self._fill_if_missing(value, "mechanics", card.get("mechanics"))
         self._fill_if_missing(value, "race", card.get("race"))
         self._fill_if_missing(value, "races", card.get("races"))

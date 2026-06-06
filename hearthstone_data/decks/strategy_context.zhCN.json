@@ -1,0 +1,1414 @@
+{
+  "_metadata": {
+    "updated_at": "2026-06-06",
+    "purpose": "Unified Hearthstone deck archetype data for both my deck and opponent deck reasoning.",
+    "sections": {
+      "opponent_archetypes": "Probabilistic enemy archetype data grouped by class.",
+      "own_deck_strategies": "Owned deck win condition and core card timing data."
+    },
+    "legacy_files": [
+      "archetypes.zhCN.json",
+      "deck_strategies.zhCN.json"
+    ],
+    "strategy_detail_schema": {
+      "win_condition": "该套牌或原型通常如何取胜。",
+      "core_cards": "代表性核心牌或核心组件；每项包含 role/play_timing/keep_condition，可选 counter_priority。",
+      "strategy_detail_level": "representative_core 表示使用一套代表性牌表/核心组件总结，不覆盖所有变体。"
+    },
+    "strategy_sources": [
+      "HSGuru Meta, crawled 2026-06: archetype popularity and current class distribution",
+      "Hearthstone-Decks.net, June 2026 Top 500 Legend samples: recent representative archetype presence",
+      "Vicious Syndicate deck pages and Data Reaper reports: representative core-card packages where available",
+      "233乐园: 兆示贼攻略/对局讨论, crawled 2026-06",
+      "游侠手游: 标准兆示贼卡组 2026-03",
+      "GamerSky: 兆示贼卡组代码推荐 2026-03"
+    ],
+    "schema_version": 2,
+    "primary_sections": {
+      "deck_archetypes": "Deck archetypes grouped by class. Both my deck and opponent matchup builders read this section."
+    },
+    "legacy_sections_removed": [
+      "opponent_archetypes",
+      "own_deck_strategies"
+    ],
+    "deck_archetypes_rule": "Each class keeps 1-3 representative archetypes. A single archetype can be used for either my deck strategy matching or opponent matchup hints."
+  },
+  "deck_archetypes": {
+    "DEATHKNIGHT": [
+      {
+        "name": "BBU Herald Death Knight",
+        "style": "tempo",
+        "base_confidence": 0.42,
+        "signals": [
+          "BBU",
+          "Herald",
+          "Harold",
+          "符文",
+          "亡语",
+          "发现",
+          "复生"
+        ],
+        "game_plan": "按中速资源套牌处理，注意对手中期连续站场和资源补充；如果我方有速度优势，应尽早建立血量压力。",
+        "sources": [
+          "Hearthstone-Decks.net Standard: BBU Herald Death Knight May 2026 samples",
+          "HSGuru: Harold DK"
+        ],
+        "source_notes": "Hearthstone-Decks.net 近期 Death Knight 样本几乎集中在 BBU Herald Death Knight；HSGuru 当前表中也列出 Harold DK。",
+        "win_condition": "通过 Herald/复生/资源体系站住中期场面，持续交换后用资源和随从质量压垮对手。",
+        "core_cards": [
+          {
+            "name": "Herald/Harold 体系牌",
+            "role": "中期节奏和资源核心",
+            "play_timing": "通常在能立刻形成场面或资源收益时按曲线打出。",
+            "keep_condition": "起手保留低费 Herald 配合牌和能支撑前期曲线的牌。",
+            "counter_priority": "看到公开 Herald 组件后，优先阻断其连续站场和资源滚雪球。"
+          },
+          {
+            "name": "低费节奏随从",
+            "role": "前期站场和交换基础",
+            "play_timing": "1-3 费优先发展，帮助后续核心牌吃到场面。",
+            "keep_condition": "对快攻和中速局保留。",
+            "counter_priority": "尽量用高效交换清掉，避免被后续增益或复生价值放大。"
+          },
+          {
+            "name": "中期资源/返场牌",
+            "role": "补资源或重新夺回场面",
+            "play_timing": "在手牌或场面开始亏损时打出，不一定无脑抢节奏。",
+            "keep_condition": "慢速对局可保留资源牌，快攻局优先找低费。",
+            "counter_priority": "压低其场面数量，降低资源牌的收益。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DEATHKNIGHT",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Unholy Death Knight",
+        "style": "aggro",
+        "base_confidence": 0.18,
+        "signals": [
+          "Unholy",
+          "邪恶",
+          "尸体",
+          "铺场",
+          "亡灵"
+        ],
+        "game_plan": "默认重视早期场面交换和清场，防止小随从滚雪球；低血量时不要无视场攻抢脸。",
+        "sources": [
+          "HSGuru: Unholy DK"
+        ],
+        "source_notes": "HSGuru 当前 Standard meta 表列出 Unholy DK，但热度低于 Herald DK。",
+        "win_condition": "前期铺场并利用亡语、复生和群体增益保持场面，迫使对手不断解场后用宽场面取胜。",
+        "core_cards": [
+          {
+            "name": "蛋/亡语载体",
+            "role": "抗解场和铺场核心",
+            "play_timing": "通常在能被触发、增益或保护时打出。",
+            "keep_condition": "起手保留低费蛋和触发器。",
+            "counter_priority": "避免低收益解蛋；优先处理触发器和增益牌。"
+          },
+          {
+            "name": "亡语触发器",
+            "role": "把蛋转化为场面压力",
+            "play_timing": "有蛋或亡语目标时优先打出。",
+            "keep_condition": "有蛋时保留。",
+            "counter_priority": "先解触发器，降低爆发铺场。"
+          },
+          {
+            "name": "群体增益/返场牌",
+            "role": "把多个小随从转化为威胁",
+            "play_timing": "通常在已有多个随从时打出，形成一回合爆发。",
+            "keep_condition": "有低费铺场时可保留。",
+            "counter_priority": "不要让其保留宽场面进入增益回合。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DEATHKNIGHT",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "DEMONHUNTER": [
+      {
+        "name": "No Minion Demon Hunter",
+        "style": "spell_burn",
+        "base_confidence": 0.48,
+        "signals": [
+          "No Minion",
+          "无随从",
+          "法术",
+          "武器",
+          "抽牌",
+          "恶魔猎手"
+        ],
+        "game_plan": "不要因对方前期少随从就判断无压力；重点计算法术、武器和英雄攻击带来的爆发窗口，必要时优先保血。",
+        "sources": [
+          "HSGuru: No Minion DH",
+          "Hearthstone-Decks.net Standard: No Minion Demon Hunter June 2026 Top Legend samples",
+          "vS Data Reaper #350: Spell Demon Hunter remains one of the best decks"
+        ],
+        "source_notes": "HSGuru 当前 No Minion DH 胜率靠前；Hearthstone-Decks.net 近期有多个高传说 No Minion DH 样本。",
+        "win_condition": "依靠法术、武器和英雄攻击形成连续伤害，同时用高效解场保护自身节奏。",
+        "core_cards": [
+          {
+            "name": "低费随从包",
+            "role": "前期抢场面和持续输出",
+            "play_timing": "前两回合尽量按费打出，优先制造可重复攻击点。",
+            "keep_condition": "起手优先保留 1-2 费曲线。",
+            "counter_priority": "优先解能连续攻击或吃增益的随从。"
+          },
+          {
+            "name": "直伤/武器牌",
+            "role": "补足斩杀和越墙伤害",
+            "play_timing": "对手血线进入危险区时保留到斩杀或关键解场。",
+            "keep_condition": "已有曲线时可保留直伤。",
+            "counter_priority": "控制自身血线，避免同时丢场面和血量。"
+          },
+          {
+            "name": "过牌/资源转换牌",
+            "role": "防止手牌打空后断档",
+            "play_timing": "通常在费用能接上后续动作时使用。",
+            "keep_condition": "起手不缺曲线时保留。",
+            "counter_priority": "逼迫其把伤害用在解场，降低资源转化效率。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DEMONHUNTER",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Quest Demon Hunter",
+        "style": "combo",
+        "base_confidence": 0.18,
+        "signals": [
+          "Quest",
+          "任务",
+          "抽牌",
+          "流放"
+        ],
+        "game_plan": "关注任务/抽牌推进速度；若对手启动较慢，我方应尽早压血而不是只做价值交换。",
+        "sources": [
+          "HSGuru: Quest DH",
+          "Hearthstone-Decks.net Standard: Quest Demon Hunter May 2026 sample"
+        ],
+        "source_notes": "Quest DH 出现于 HSGuru 和近期高传说样本，但热度低于 No Minion DH。",
+        "win_condition": "尽早完成任务并利用任务奖励或减费资源形成一回合爆发或连续节奏回合。",
+        "core_cards": [
+          {
+            "name": "任务牌",
+            "role": "长期赢法和任务奖励来源",
+            "play_timing": "通常越早打越好，除非当前回合必须处理致命场面。",
+            "keep_condition": "起手必留。",
+            "counter_priority": "用场面压力迫使其任务回合亏节奏。"
+          },
+          {
+            "name": "任务推进牌",
+            "role": "稳定完成任务的关键资源",
+            "play_timing": "优先在能同时推进任务和处理场面时使用。",
+            "keep_condition": "保留低费任务推进牌。",
+            "counter_priority": "识别任务进度，提前规划击杀窗口。"
+          },
+          {
+            "name": "任务奖励/后期资源",
+            "role": "完成任务后的压倒性收益",
+            "play_timing": "完成任务后围绕奖励回合组织爆发或资源压制。",
+            "keep_condition": "起手通常不留高费奖励组件。",
+            "counter_priority": "尽量在任务完成前抢死或建立不可忽视场面。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DEMONHUNTER",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Broxigar Demon Hunter",
+        "style": "tempo",
+        "base_confidence": 0.12,
+        "signals": [
+          "Broxigar",
+          "布洛克斯加",
+          "Token",
+          "铺场"
+        ],
+        "game_plan": "按节奏铺场套牌处理，优先处理可持续输出的随从和强化点。",
+        "sources": [
+          "HSGuru: Broxigar DH",
+          "Hearthstone-Decks.net Standard: Token Broxigar Demon Hunter May 2026 sample"
+        ],
+        "source_notes": "当前可见样本较少，仅作为低置信候选。",
+        "win_condition": "通过 Broxigar/Token 体系建立宽场面，再用攻击增益和英雄伤害完成斩杀。",
+        "core_cards": [
+          {
+            "name": "Broxigar 体系牌",
+            "role": "铺场和终结核心",
+            "play_timing": "通常在能立刻形成宽场或增益回合时使用。",
+            "keep_condition": "有低费曲线时保留相关启动牌。",
+            "counter_priority": "提前清场，避免进入增益斩杀回合。"
+          },
+          {
+            "name": "低费随从包",
+            "role": "前期抢场面和持续输出",
+            "play_timing": "前两回合尽量按费打出，优先制造可重复攻击点。",
+            "keep_condition": "起手优先保留 1-2 费曲线。",
+            "counter_priority": "优先解能连续攻击或吃增益的随从。"
+          },
+          {
+            "name": "直伤/武器牌",
+            "role": "补足斩杀和越墙伤害",
+            "play_timing": "对手血线进入危险区时保留到斩杀或关键解场。",
+            "keep_condition": "已有曲线时可保留直伤。",
+            "counter_priority": "控制自身血线，避免同时丢场面和血量。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DEMONHUNTER",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "DRUID": [
+      {
+        "name": "Token Druid",
+        "style": "aggro",
+        "base_confidence": 0.42,
+        "signals": [
+          "Token",
+          "铺场",
+          "树人",
+          "buff",
+          "群体强化",
+          "低费随从"
+        ],
+        "game_plan": "优先处理场面数量和群体 buff 风险；如果不能清干净，至少减少对方下回合可增益的攻击源。",
+        "sources": [
+          "HSGuru: Token Druid",
+          "Hearthstone-Decks.net Standard: Token Druid June 2026 Top Legend samples"
+        ],
+        "source_notes": "HSGuru 当前 Token Druid 胜率最高一档；Hearthstone-Decks.net 近期也有高传说 Token Druid。",
+        "win_condition": "用低费随从、蛋和铺场法术建立宽场面，再通过增益或亡语反复压制。",
+        "core_cards": [
+          {
+            "name": "Living Roots",
+            "role": "低费铺场和灵活解场",
+            "play_timing": "前期优先制造场面；必要时用作解牌。",
+            "keep_condition": "起手优先保留。",
+            "counter_priority": "清掉早期小随从，防止群体增益。"
+          },
+          {
+            "name": "Twilight Egg / Longneck Egg",
+            "role": "亡语铺场核心",
+            "play_timing": "有触发或增益时优先打出。",
+            "keep_condition": "有触发器时保留。",
+            "counter_priority": "优先处理触发器，避免低收益打破蛋。"
+          },
+          {
+            "name": "Hatchery Helper",
+            "role": "蛋体系触发和节奏核心",
+            "play_timing": "有蛋或亡语目标时打出。",
+            "keep_condition": "有蛋时保留。",
+            "counter_priority": "先解触发器，减少一波铺场。"
+          },
+          {
+            "name": "Wickerfang / Amirdrassil",
+            "role": "中后期场面质量核心",
+            "play_timing": "用于扩大场面优势或重建场面。",
+            "keep_condition": "起手不留，除非对局很慢。",
+            "counter_priority": "提前保留清场或嘲讽处理宽场。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DRUID",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Merithra Druid",
+        "style": "value",
+        "base_confidence": 0.3,
+        "signals": [
+          "Merithra",
+          "梦境",
+          "龙",
+          "资源",
+          "发现"
+        ],
+        "game_plan": "按中后期质量套牌处理，避免无意义消耗关键解牌；如果我方能抢死，应尽快建立两回合斩杀计划。",
+        "sources": [
+          "HSGuru: Merithra Druid",
+          "Hearthstone-Decks.net Standard: Merithra Druid May 2026 samples"
+        ],
+        "source_notes": "HSGuru 中 Merithra Druid 热度较高，Hearthstone-Decks.net 也有多个近期样本。",
+        "win_condition": "通过中期高质量龙/资源牌稳定场面，利用 Merithra 相关资源扩大后期优势。",
+        "core_cards": [
+          {
+            "name": "Merithra 体系牌",
+            "role": "中后期资源和质量核心",
+            "play_timing": "通常在场面稳定或能获得资源收益时打出。",
+            "keep_condition": "慢速对局可保留，快攻局优先找低费。",
+            "counter_priority": "在它启动前建立血量和场面压力。"
+          },
+          {
+            "name": "Living Roots",
+            "role": "低费铺场和灵活解场",
+            "play_timing": "前期优先制造场面；必要时用作解牌。",
+            "keep_condition": "起手优先保留。",
+            "counter_priority": "清掉早期小随从，防止群体增益。"
+          },
+          {
+            "name": "Twilight Egg / Longneck Egg",
+            "role": "亡语铺场核心",
+            "play_timing": "有触发或增益时优先打出。",
+            "keep_condition": "有触发器时保留。",
+            "counter_priority": "优先处理触发器，避免低收益打破蛋。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DRUID",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Azshara Druid",
+        "style": "value",
+        "base_confidence": 0.22,
+        "signals": [
+          "Azshara",
+          "艾萨拉",
+          "法术",
+          "资源"
+        ],
+        "game_plan": "注意对手中后期资源和法术链路；我方若是快攻，需要避免给对方舒服过渡到强回合。",
+        "sources": [
+          "HSGuru: Azshara Druid",
+          "Hearthstone-Decks.net Standard: Azshara Druid June 2026 Top Legend samples"
+        ],
+        "source_notes": "近期高传说页面出现 Azshara Druid，HSGuru 也列入当前环境。",
+        "win_condition": "通过跳费和中后期资源牌过渡，依靠 Azshara/高质量发现资源取得优势。",
+        "core_cards": [
+          {
+            "name": "Azshara 体系牌",
+            "role": "资源发现和质量核心",
+            "play_timing": "中期在不亏场面时打出，寻找后续制胜资源。",
+            "keep_condition": "慢速对局可保留。",
+            "counter_priority": "利用其前期空档压血。"
+          },
+          {
+            "name": "跳费/成长牌",
+            "role": "提前进入高费回合",
+            "play_timing": "前期优先使用以加速高费威胁。",
+            "keep_condition": "起手保留。",
+            "counter_priority": "惩罚跳费回合的场面空档。"
+          },
+          {
+            "name": "高费质量随从",
+            "role": "后期终结和资源压力",
+            "play_timing": "跳费后提前落地。",
+            "keep_condition": "起手通常不留。",
+            "counter_priority": "保留硬解处理第一个高费威胁。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "DRUID",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "HUNTER": [
+      {
+        "name": "Companion Hunter",
+        "style": "tempo",
+        "base_confidence": 0.48,
+        "signals": [
+          "Companion",
+          "伙伴",
+          "野兽",
+          "发现",
+          "中速",
+          "随从质量"
+        ],
+        "game_plan": "按中速节奏处理，注意中期随从质量和连续压力；如果我方速度慢，优先解关键攻击源并保护血量。",
+        "sources": [
+          "HSGuru: Companion Hunter",
+          "Hearthstone-Decks.net Standard: Companion Hunter June 2026 Top Legend samples",
+          "vS Data Reaper #350: Companion Hunter play rate remains high"
+        ],
+        "source_notes": "HSGuru 当前 Companion Hunter 热度极高；Hearthstone-Decks.net 6月3日有多条 Companion Hunter 高传说样本。",
+        "win_condition": "前期像快攻猎抢节奏，中后期用伙伴体系持续铺场和制造高质量压力。",
+        "core_cards": [
+          {
+            "name": "Critter Caretaker",
+            "role": "伙伴体系启动和前期节奏",
+            "play_timing": "1 费可按曲线打出，帮助伙伴体系接管后续回合。",
+            "keep_condition": "起手优先保留。",
+            "counter_priority": "尽早解掉，降低伙伴体系滚雪球。"
+          },
+          {
+            "name": "Animal Companion / 野兽伙伴",
+            "role": "中期随机伙伴压力",
+            "play_timing": "3 费按曲线打出，配合后续伙伴增益或持续压力。",
+            "keep_condition": "有前期曲线时保留。",
+            "counter_priority": "优先处理能持续输出或保护场面的伙伴。"
+          },
+          {
+            "name": "Roam Free",
+            "role": "伙伴体系后期爆发/续航",
+            "play_timing": "通常在已有伙伴基础或需要重新铺场时使用。",
+            "keep_condition": "起手不留，除非对局很慢。",
+            "counter_priority": "不要让猎人舒服过渡到高费伙伴回合。"
+          },
+          {
+            "name": "Call of the Wild",
+            "role": "终结和后期场面压制",
+            "play_timing": "8 费形成大场面和伤害压力。",
+            "keep_condition": "起手不留。",
+            "counter_priority": "8 费前尽量压低猎人血线或保留清场。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "HUNTER",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "No Hand Hunter",
+        "style": "aggro",
+        "base_confidence": 0.4,
+        "signals": [
+          "No Hand",
+          "空手",
+          "低费",
+          "奥术射击",
+          "杀戮命令",
+          "抢血",
+          "快攻"
+        ],
+        "game_plan": "默认尊重抢血压力；如果我方速度不如对手，优先处理场面和攻击源，随后寻找反杀窗口。",
+        "sources": [
+          "HSGuru: No Hand Hunter",
+          "Hearthstone-Decks.net Standard: No Hand Hunter June 2026 Top Legend samples"
+        ],
+        "source_notes": "HSGuru 当前 No Hand Hunter 胜率高且样本量较大；高传说页面也有 6月1-2日样本。",
+        "win_condition": "快速倾泻手牌并把费用转化为英雄伤害，用低费牌和抽牌维持斩杀压力。",
+        "core_cards": [
+          {
+            "name": "低费随从包",
+            "role": "前期抢场面和持续输出",
+            "play_timing": "前两回合尽量按费打出，优先制造可重复攻击点。",
+            "keep_condition": "起手优先保留 1-2 费曲线。",
+            "counter_priority": "优先解能连续攻击或吃增益的随从。"
+          },
+          {
+            "name": "直伤/武器牌",
+            "role": "补足斩杀和越墙伤害",
+            "play_timing": "对手血线进入危险区时保留到斩杀或关键解场。",
+            "keep_condition": "已有曲线时可保留直伤。",
+            "counter_priority": "控制自身血线，避免同时丢场面和血量。"
+          },
+          {
+            "name": "过牌/资源转换牌",
+            "role": "防止手牌打空后断档",
+            "play_timing": "通常在费用能接上后续动作时使用。",
+            "keep_condition": "起手不缺曲线时保留。",
+            "counter_priority": "逼迫其把伤害用在解场，降低资源转化效率。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "HUNTER",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Face Hunter",
+        "style": "aggro",
+        "base_confidence": 0.22,
+        "signals": [
+          "Face",
+          "快攻",
+          "直伤",
+          "奥术射击",
+          "杀戮命令"
+        ],
+        "game_plan": "按抢血套牌处理，优先计算我方下回合死亡风险；只有明确接近斩杀时才降低解场优先级。",
+        "sources": [
+          "vS Data Reaper #350: Face Hunter is described as stronger than Companion Hunter"
+        ],
+        "source_notes": "vS 报告提到 Face Hunter 强于 Companion Hunter，但 HSGuru/Hearthstone-Decks.net 当前主要显式原型为 No Hand/Companion。",
+        "win_condition": "最大化对英雄伤害，只有高收益或保护血线时才交换随从。",
+        "core_cards": [
+          {
+            "name": "低费随从包",
+            "role": "前期抢场面和持续输出",
+            "play_timing": "前两回合尽量按费打出，优先制造可重复攻击点。",
+            "keep_condition": "起手优先保留 1-2 费曲线。",
+            "counter_priority": "优先解能连续攻击或吃增益的随从。"
+          },
+          {
+            "name": "直伤/武器牌",
+            "role": "补足斩杀和越墙伤害",
+            "play_timing": "对手血线进入危险区时保留到斩杀或关键解场。",
+            "keep_condition": "已有曲线时可保留直伤。",
+            "counter_priority": "控制自身血线，避免同时丢场面和血量。"
+          },
+          {
+            "name": "过牌/资源转换牌",
+            "role": "防止手牌打空后断档",
+            "play_timing": "通常在费用能接上后续动作时使用。",
+            "keep_condition": "起手不缺曲线时保留。",
+            "counter_priority": "逼迫其把伤害用在解场，降低资源转化效率。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "HUNTER",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "MAGE": [
+      {
+        "name": "Burn Mage",
+        "style": "burn",
+        "base_confidence": 0.38,
+        "signals": [
+          "Burn",
+          "直伤",
+          "法术伤害",
+          "火焰",
+          "冻结",
+          "奥术"
+        ],
+        "game_plan": "重点计算我方血线和对手可能的法术直伤；不要只因场面压力低就忽略下回合斩杀风险。",
+        "sources": [
+          "HSGuru: Burn Mage",
+          "Hearthstone-Decks.net Standard: Burn Mage June 2026 Top Legend samples"
+        ],
+        "source_notes": "HSGuru 当前 Burn Mage 胜率较高；高传说页面有 6月1-2日 Burn Mage 样本。",
+        "win_condition": "用低费法术控场并积累手牌直伤，中后期通过法伤、减费和连续法术完成斩杀。",
+        "core_cards": [
+          {
+            "name": "First Flame / 初始之火",
+            "role": "低费解场和法术链启动",
+            "play_timing": "前期解关键随从，或后期配合法伤补伤害。",
+            "keep_condition": "对快攻和需要早期解场时保留。",
+            "counter_priority": "不要把关键随从白送给低费火焰法术。"
+          },
+          {
+            "name": "Runed Orb / 符文宝珠",
+            "role": "解场、补资源和找直伤",
+            "play_timing": "优先处理持续伤害源；无目标时可保留找资源。",
+            "keep_condition": "需要早期互动时保留。",
+            "counter_priority": "注意它既是解牌也是找伤害。"
+          },
+          {
+            "name": "Arcane Flow / 奥术流动",
+            "role": "法术减费和爆发准备",
+            "play_timing": "中期用于降低后续法术成本，准备连续伤害。",
+            "keep_condition": "慢速对局可保留。",
+            "counter_priority": "看到减费后要提高血线安全阈值。"
+          },
+          {
+            "name": "Archmage Kalec",
+            "role": "法术爆发核心",
+            "play_timing": "通常在能立即配合法术或形成爆发回合时打出。",
+            "keep_condition": "起手通常不留，除非对局很慢。",
+            "counter_priority": "能解则优先解，避免后续法术连锁。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "MAGE",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Quest Mage",
+        "style": "quest_value",
+        "base_confidence": 0.28,
+        "signals": [
+          "Quest",
+          "任务",
+          "法术",
+          "抽牌",
+          "发现"
+        ],
+        "game_plan": "关注任务进度和法术链路；如果对手还未启动，我方应尽快建立压力而不是纯价值交换。",
+        "sources": [
+          "HSGuru: Quest Mage",
+          "Hearthstone-Decks.net Standard: Quest Mage May 2026 samples"
+        ],
+        "source_notes": "Quest Mage 在 HSGuru 和近期高传说页面均可见。",
+        "win_condition": "尽早打出任务，通过发现牌推进任务并积累资源，完成任务后依靠持续生成的高质量卡牌建立优势并结束对局。",
+        "core_cards": [
+          {
+            "card_id": "TLC_460",
+            "name": "禁忌序列",
+            "role": "任务与核心赢法",
+            "play_timing": "通常第一回合尽早打出，开始累计发现进度；只有当前回合存在必须处理的致命场面时才推迟。",
+            "keep_condition": "起手必留。"
+          },
+          {
+            "card_id": "TLC_461",
+            "name": "拾荒清道夫",
+            "role": "任务推进与节奏随从",
+            "play_timing": "优先在剩余法力对应的发现池质量较高时打出；前期也可作为随从占场，不应无理由只用法术空过场面。",
+            "keep_condition": "需要前期曲线或任务推进时保留。"
+          },
+          {
+            "card_id": "CORE_BAR_541",
+            "name": "符文宝珠",
+            "role": "解场、任务推进与资源补充",
+            "play_timing": "优先处理会持续造成伤害或滚雪球的目标；没有必要目标时通常保留，不要仅为推进任务浪费伤害。",
+            "keep_condition": "对快攻或需要早期解场时保留。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "MAGE",
+        "format": "standard",
+        "aliases": [
+          "任务发现法",
+          "Quest Discover Mage"
+        ],
+        "signature_cards": [
+          "TLC_460",
+          "TLC_461",
+          "CORE_BAR_541"
+        ],
+        "burst_exception": false
+      }
+    ],
+    "PALADIN": [
+      {
+        "name": "End of Turn Paladin",
+        "style": "tempo",
+        "base_confidence": 0.42,
+        "signals": [
+          "End of Turn",
+          "回合结束",
+          "光环",
+          "buff",
+          "圣盾"
+        ],
+        "game_plan": "优先处理能持续触发回合结束收益的场面；不要让对方稳定保留关键随从过回合。",
+        "sources": [
+          "HSGuru: End of Turnadin",
+          "Hearthstone-Decks.net Standard: End of Turn Paladin May 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前 End of Turnadin 胜率靠前；高传说页面有多条近期样本。",
+        "win_condition": "通过光环和回合结束触发不断叠加场面、护甲和资源，最终用难处理场面压死对手。",
+        "core_cards": [
+          {
+            "name": "Acceleration Aura",
+            "role": "提前启动回合结束体系",
+            "play_timing": "尽早打出以加速后续光环/回合结束收益。",
+            "keep_condition": "起手优先保留。",
+            "counter_priority": "尽快建立压力，避免其稳定叠收益。"
+          },
+          {
+            "name": "Inspiring Maul",
+            "role": "武器和场面强化核心",
+            "play_timing": "有随从或能持续攻击时优先装备。",
+            "keep_condition": "有低费曲线时保留。",
+            "counter_priority": "控制其随从数量，降低武器收益。"
+          },
+          {
+            "name": "Sandfury Aura",
+            "role": "回合结束体系关键光环",
+            "play_timing": "有合适随从或可保护目标时打出。",
+            "keep_condition": "对慢速可保留。",
+            "counter_priority": "优先解光环收益目标。"
+          },
+          {
+            "name": "Ancient of Yore",
+            "role": "护甲、抽牌和休眠收益",
+            "play_timing": "中期用于稳定血线和补牌。",
+            "keep_condition": "对快攻可保留。",
+            "counter_priority": "不要给其无压力发育回合。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "PALADIN",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Dude Paladin",
+        "style": "aggro",
+        "base_confidence": 0.24,
+        "signals": [
+          "Dude",
+          "白银之手",
+          "新兵",
+          "铺场",
+          "buff"
+        ],
+        "game_plan": "按铺场 buff 套牌处理，优先减少随从数量，避免被群体强化造成爆发伤害。",
+        "sources": [
+          "HSGuru: Dude Paladin",
+          "Hearthstone-Decks.net Standard: Dude Paladin June 2026 sample"
+        ],
+        "source_notes": "Dude Paladin 在 HSGuru 和 6月3日高传说页面均可见。",
+        "win_condition": "持续制造报告兵和小随从，再通过群体增益把宽场转化为伤害。",
+        "core_cards": [
+          {
+            "name": "报告兵生成牌",
+            "role": "宽场基础",
+            "play_timing": "前期持续制造多个攻击点。",
+            "keep_condition": "起手保留低费生成牌。",
+            "counter_priority": "不要让报告兵存活进入群体增益回合。"
+          },
+          {
+            "name": "群体增益牌",
+            "role": "把小随从转化为爆发伤害",
+            "play_timing": "已有多个随从时使用。",
+            "keep_condition": "有低费铺场时保留。",
+            "counter_priority": "优先清场而不是只解大怪。"
+          },
+          {
+            "name": "圣盾/保护牌",
+            "role": "保护关键随从和宽场",
+            "play_timing": "用于抵抗清场或保护增益目标。",
+            "keep_condition": "对解场多的职业可保留。",
+            "counter_priority": "用分段伤害破圣盾。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "PALADIN",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Aggro Paladin",
+        "style": "aggro",
+        "base_confidence": 0.12,
+        "signals": [
+          "Aggro",
+          "快攻",
+          "低费",
+          "buff"
+        ],
+        "game_plan": "低血量时优先防止场攻滚雪球；若我方有更快斩杀才考虑反抢。",
+        "sources": [
+          "HSGuru: Aggro Paladin",
+          "Hearthstone-Decks.net Standard: Aggro Paladin May 2026 sample"
+        ],
+        "source_notes": "当前可见但样本量不高，作为低置信候选。",
+        "win_condition": "低费随从和圣盾站场，配合武器/增益持续压血。",
+        "core_cards": [
+          {
+            "name": "低费随从包",
+            "role": "前期抢场面和持续输出",
+            "play_timing": "前两回合尽量按费打出，优先制造可重复攻击点。",
+            "keep_condition": "起手优先保留 1-2 费曲线。",
+            "counter_priority": "优先解能连续攻击或吃增益的随从。"
+          },
+          {
+            "name": "直伤/武器牌",
+            "role": "补足斩杀和越墙伤害",
+            "play_timing": "对手血线进入危险区时保留到斩杀或关键解场。",
+            "keep_condition": "已有曲线时可保留直伤。",
+            "counter_priority": "控制自身血线，避免同时丢场面和血量。"
+          },
+          {
+            "name": "过牌/资源转换牌",
+            "role": "防止手牌打空后断档",
+            "play_timing": "通常在费用能接上后续动作时使用。",
+            "keep_condition": "起手不缺曲线时保留。",
+            "counter_priority": "逼迫其把伤害用在解场，降低资源转化效率。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "PALADIN",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "PRIEST": [
+      {
+        "name": "Control Priest",
+        "style": "control",
+        "base_confidence": 0.46,
+        "signals": [
+          "Control",
+          "控制",
+          "清场",
+          "回复",
+          "偷取",
+          "复制"
+        ],
+        "game_plan": "避免一次性投入所有资源进清场；如果我方是快攻，需要规划连续两回合伤害，而不是只看当前回合。",
+        "sources": [
+          "HSGuru: Control Priest",
+          "Hearthstone-Decks.net Standard: Control Priest May-June 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前 Control Priest 热度高；高传说页面近期多条 Priest 样本都是 Control Priest。",
+        "win_condition": "用解牌、回复和资源牌拖入后期，消耗对手关键资源后取得长期优势。",
+        "core_cards": [
+          {
+            "name": "高效解牌",
+            "role": "拖入后期的基础",
+            "play_timing": "用于处理我方最关键威胁，不会轻易浪费。",
+            "keep_condition": "对快攻保留低费解牌。",
+            "counter_priority": "分批施压，避免一次投入被清空。"
+          },
+          {
+            "name": "回复/护甲牌",
+            "role": "稳定血线并拉长对局",
+            "play_timing": "血线危险或准备进入后期时使用。",
+            "keep_condition": "对快攻保留。",
+            "counter_priority": "制造连续两回合伤害，不要只押单回合爆发。"
+          },
+          {
+            "name": "后期资源牌",
+            "role": "疲劳或资源战核心",
+            "play_timing": "中后期打出，确保长期资源优势。",
+            "keep_condition": "慢速对局可保留。",
+            "counter_priority": "在其资源引擎启动前建立压力。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "PRIEST",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Egg Priest",
+        "style": "tempo",
+        "base_confidence": 0.14,
+        "signals": [
+          "Egg",
+          "亡语",
+          "复活",
+          "增益"
+        ],
+        "game_plan": "注意亡语和复活收益，解场时优先考虑是否会给对手留下更大收益。",
+        "sources": [
+          "HSGuru: Egg Priest",
+          "Hearthstone-Decks.net Standard: Egg Priest May 2026 sample"
+        ],
+        "source_notes": "当前样本较少，作为低置信候选。",
+        "win_condition": "利用蛋和亡语载体反复制造难清场面，再用复活或增益扩大优势。",
+        "core_cards": [
+          {
+            "name": "蛋/亡语载体",
+            "role": "抗解场和铺场核心",
+            "play_timing": "通常在能被触发、增益或保护时打出。",
+            "keep_condition": "起手保留低费蛋和触发器。",
+            "counter_priority": "避免低收益解蛋；优先处理触发器和增益牌。"
+          },
+          {
+            "name": "亡语触发器",
+            "role": "把蛋转化为场面压力",
+            "play_timing": "有蛋或亡语目标时优先打出。",
+            "keep_condition": "有蛋时保留。",
+            "counter_priority": "先解触发器，降低爆发铺场。"
+          },
+          {
+            "name": "群体增益/返场牌",
+            "role": "把多个小随从转化为威胁",
+            "play_timing": "通常在已有多个随从时打出，形成一回合爆发。",
+            "keep_condition": "有低费铺场时可保留。",
+            "counter_priority": "不要让其保留宽场面进入增益回合。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "PRIEST",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "ROGUE": [
+      {
+        "name": "Omen Rogue",
+        "aliases": [
+          "兆示贼",
+          "灾变兆示贼"
+        ],
+        "class": "ROGUE",
+        "format": "standard",
+        "style": "resource_tempo",
+        "base_confidence": 0.34,
+        "signals": [
+          "兆示",
+          "癫狂的追随者",
+          "暮光祭礼",
+          "希奈丝特拉",
+          "潜踪大师奥普",
+          "导航员伊莉斯",
+          "另一职业的法术牌"
+        ],
+        "signature_cards": [
+          "CATA_158",
+          "CATA_785",
+          "CATA_154",
+          "CATA_190h",
+          "TLC_522",
+          "TLC_100"
+        ],
+        "burst_exception": false,
+        "win_condition": "通过癫狂的追随者、暮光祭礼等兆示组件提前制造跨职业法术资源；中期用希奈丝特拉放大其它职业法术；后期以灭世者死亡之翼完成变身和灾变收益，或用减费法术与场面伤害找到斩杀。",
+        "core_cards": [
+          {
+            "card_id": "CATA_158",
+            "name": "癫狂的追随者",
+            "role": "兆示资源启动牌",
+            "play_timing": "3费能安全站场时优先打出，尤其在没有必须解的场面时用来开始积累跨职业法术。",
+            "keep_condition": "起手可留；有前期曲线或对手压力不大时更应保留。",
+            "counter_priority": "对手使用时要尽量处理亡语收益或压低其能舒服兆示的回合。"
+          },
+          {
+            "card_id": "CATA_785",
+            "name": "暮光祭礼",
+            "role": "兆示推进和连击解场牌",
+            "play_timing": "有连击条件且需要解关键随从时使用；如果偷来的解牌或当前解场能等到更多目标，低压力时不要急用。",
+            "keep_condition": "对快攻或需要早期互动时保留；对慢速可作为资源推进牌保留。",
+            "counter_priority": "注意它既能推进兆示也能补伤害，低血量时提高斩杀警戒。"
+          },
+          {
+            "card_id": "CATA_154",
+            "name": "希奈丝特拉",
+            "role": "其它职业法术翻倍收益牌",
+            "play_timing": "已经通过兆示或资源链拿到高质量其它职业法术时优先考虑；如果没有可配合法术或场面压力过大，不要裸下浪费节奏。",
+            "keep_condition": "不作为常规起手保留；中慢速对局可以围绕其规划资源回合。",
+            "counter_priority": "对手使用后要优先处理，否则其跨职业法术会被复制并迅速拉开资源或伤害差距。"
+          },
+          {
+            "card_id": "CATA_190h",
+            "name": "灭世者死亡之翼",
+            "role": "10费变身与灾变终局收益牌",
+            "play_timing": "完成或接近完成兆示升级后，费用允许时优先规划打出；有幸运币等临时法力能提前变身时，通常比继续下低影响资源牌更强。",
+            "keep_condition": "不作为常规起手保留；通过兆示、发现或资源链拿到后，评估费用和当回合场面强度。",
+            "counter_priority": "对手接近10费、拥有临时法力或明显降费时，要预期其高费灾变牌会一次性改变场面。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "game_plan": "使用方不要只贪解场：前期优先保证兆示启动和资源质量，不要为了填费用随意交幸运币；中期围绕希奈丝特拉和其它职业法术制造爆发资源；进入中后期后，如果费用允许，要重视灭世者死亡之翼这类10费变身收益牌的当回合强度。偷到的高价值解场牌要看收益，低压力时可以等更多随从或更关键威胁。对阵时要压迫其资源启动回合，并警惕临时法力跳高费变身牌和减费跨职业法术的爆发。",
+        "sources": [
+          "233乐园: 炉石传说兆示贼攻略/对局讨论, crawled 2026-06",
+          "游侠手游: 标准兆示贼卡组 2026-03",
+          "GamerSky: 兆示贼卡组代码推荐 2026-03",
+          "本项目实战日志 20260606-124904-293",
+          "本项目实战日志 20260606-173959-540"
+        ],
+        "source_notes": "中文近期攻略和卡组代码页面均确认兆示贼作为标准构筑存在；本地实战日志确认使用了癫狂的追随者、暮光祭礼、希奈丝特拉、灭世者死亡之翼等兆示核心组件。潜踪大师奥普和导航员伊莉斯可作为识别或辅助节奏牌，但不作为本套牌核心赢法描述。"
+      },
+      {
+        "name": "Herald Rogue",
+        "style": "tempo",
+        "base_confidence": 0.5,
+        "signals": [
+          "Herald",
+          "Harold",
+          "连击",
+          "武器",
+          "潜行",
+          "抽牌"
+        ],
+        "game_plan": "按高节奏套牌处理，优先打断对手场面滚雪球；低血量时警惕武器和连击爆发。",
+        "sources": [
+          "HSGuru: Harold Rogue",
+          "Hearthstone-Decks.net Standard: Herald Rogue May-June 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前 Harold Rogue 热度很高；Hearthstone-Decks.net 近期 Rogue 样本几乎集中在 Herald Rogue。",
+        "win_condition": "通过 Herald/节奏体系和盗贼连击资源形成中期爆发节奏。",
+        "core_cards": [
+          {
+            "name": "Herald/Harold 体系牌",
+            "role": "中期节奏和资源核心",
+            "play_timing": "通常在能立刻形成场面或资源收益时按曲线打出。",
+            "keep_condition": "起手保留低费 Herald 配合牌和能支撑前期曲线的牌。",
+            "counter_priority": "看到公开 Herald 组件后，优先阻断其连续站场和资源滚雪球。"
+          },
+          {
+            "name": "低费节奏随从",
+            "role": "前期站场和交换基础",
+            "play_timing": "1-3 费优先发展，帮助后续核心牌吃到场面。",
+            "keep_condition": "对快攻和中速局保留。",
+            "counter_priority": "尽量用高效交换清掉，避免被后续增益或复生价值放大。"
+          },
+          {
+            "name": "中期资源/返场牌",
+            "role": "补资源或重新夺回场面",
+            "play_timing": "在手牌或场面开始亏损时打出，不一定无脑抢节奏。",
+            "keep_condition": "慢速对局可保留资源牌，快攻局优先找低费。",
+            "counter_priority": "压低其场面数量，降低资源牌的收益。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "ROGUE",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Imbue Rogue",
+        "style": "tempo",
+        "base_confidence": 0.1,
+        "signals": [
+          "Imbue",
+          "灌注",
+          "连击",
+          "节奏"
+        ],
+        "game_plan": "证据不足时不要高估；若看到灌注相关卡牌，再提高其可能性。",
+        "sources": [
+          "HSGuru: Imbue Rogue"
+        ],
+        "source_notes": "当前 HSGuru 可见但样本较少。",
+        "win_condition": "利用 Imbue 体系强化手牌或随从，靠节奏爆发和资源转换取胜。",
+        "core_cards": [
+          {
+            "name": "Imbue 体系牌",
+            "role": "成长和节奏核心",
+            "play_timing": "通常在能立刻获得成长收益时使用。",
+            "keep_condition": "起手保留低费 Imbue 启动牌。",
+            "counter_priority": "尽早压制，不给其叠成长回合。"
+          },
+          {
+            "name": "Herald/Harold 体系牌",
+            "role": "中期节奏和资源核心",
+            "play_timing": "通常在能立刻形成场面或资源收益时按曲线打出。",
+            "keep_condition": "起手保留低费 Herald 配合牌和能支撑前期曲线的牌。",
+            "counter_priority": "看到公开 Herald 组件后，优先阻断其连续站场和资源滚雪球。"
+          },
+          {
+            "name": "低费节奏随从",
+            "role": "前期站场和交换基础",
+            "play_timing": "1-3 费优先发展，帮助后续核心牌吃到场面。",
+            "keep_condition": "对快攻和中速局保留。",
+            "counter_priority": "尽量用高效交换清掉，避免被后续增益或复生价值放大。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "ROGUE",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "SHAMAN": [
+      {
+        "name": "Herald Shaman",
+        "style": "tempo",
+        "base_confidence": 0.54,
+        "signals": [
+          "Herald",
+          "Harold",
+          "图腾",
+          "战吼",
+          "过载",
+          "铺场"
+        ],
+        "game_plan": "按强节奏套牌处理，优先降低对手下回合场面爆发和持续输出；不要轻易放任关键随从存活。",
+        "sources": [
+          "HSGuru: Harold Shaman",
+          "Hearthstone-Decks.net Standard: Herald Shaman May-June 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前 Harold Shaman 胜率和样本量都高；高传说页面近期 Shaman 样本集中在 Herald Shaman。",
+        "win_condition": "通过 Herald 体系和萨满高效铺场/资源牌建立连续中期压力。",
+        "core_cards": [
+          {
+            "name": "Herald/Harold 体系牌",
+            "role": "中期节奏和资源核心",
+            "play_timing": "通常在能立刻形成场面或资源收益时按曲线打出。",
+            "keep_condition": "起手保留低费 Herald 配合牌和能支撑前期曲线的牌。",
+            "counter_priority": "看到公开 Herald 组件后，优先阻断其连续站场和资源滚雪球。"
+          },
+          {
+            "name": "低费节奏随从",
+            "role": "前期站场和交换基础",
+            "play_timing": "1-3 费优先发展，帮助后续核心牌吃到场面。",
+            "keep_condition": "对快攻和中速局保留。",
+            "counter_priority": "尽量用高效交换清掉，避免被后续增益或复生价值放大。"
+          },
+          {
+            "name": "中期资源/返场牌",
+            "role": "补资源或重新夺回场面",
+            "play_timing": "在手牌或场面开始亏损时打出，不一定无脑抢节奏。",
+            "keep_condition": "慢速对局可保留资源牌，快攻局优先找低费。",
+            "counter_priority": "压低其场面数量，降低资源牌的收益。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "SHAMAN",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "WARLOCK": [
+      {
+        "name": "Herald Egg Warlock",
+        "style": "tempo",
+        "base_confidence": 0.34,
+        "signals": [
+          "Herald",
+          "Harold",
+          "Egg",
+          "蛋",
+          "亡语",
+          "恶魔"
+        ],
+        "game_plan": "注意亡语和场面收益，解场时评估是否会触发更大威胁；需要限制对手持续站场。",
+        "sources": [
+          "HSGuru: Harold Egglock",
+          "Hearthstone-Decks.net Standard: Herald Egg Warlock May 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前列出 Harold Egglock；高传说页面 Warlock 样本中 Herald Egg Warlock 较常见。",
+        "win_condition": "用蛋、亡语和 Herald 资源反复铺场，让对手清场效率下降。",
+        "core_cards": [
+          {
+            "name": "蛋/亡语载体",
+            "role": "抗解场和铺场核心",
+            "play_timing": "通常在能被触发、增益或保护时打出。",
+            "keep_condition": "起手保留低费蛋和触发器。",
+            "counter_priority": "避免低收益解蛋；优先处理触发器和增益牌。"
+          },
+          {
+            "name": "亡语触发器",
+            "role": "把蛋转化为场面压力",
+            "play_timing": "有蛋或亡语目标时优先打出。",
+            "keep_condition": "有蛋时保留。",
+            "counter_priority": "先解触发器，降低爆发铺场。"
+          },
+          {
+            "name": "群体增益/返场牌",
+            "role": "把多个小随从转化为威胁",
+            "play_timing": "通常在已有多个随从时打出，形成一回合爆发。",
+            "keep_condition": "有低费铺场时可保留。",
+            "counter_priority": "不要让其保留宽场面进入增益回合。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARLOCK",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Rafaam Warlock",
+        "style": "value",
+        "base_confidence": 0.22,
+        "signals": [
+          "Rafaam",
+          "拉法姆",
+          "恶魔",
+          "资源"
+        ],
+        "game_plan": "按中后期资源套牌处理；若我方有速度优势，应尽快压血，避免对手进入高价值回合。",
+        "sources": [
+          "HSGuru: Rafaamlock"
+        ],
+        "source_notes": "HSGuru 当前显示 Rafaamlock 有一定热度。",
+        "win_condition": "用术士过牌和资源消耗拖到 Rafaam/高价值回合，依靠后期资源质量取胜。",
+        "core_cards": [
+          {
+            "name": "Rafaam 体系牌",
+            "role": "后期资源和质量核心",
+            "play_timing": "中后期在有足够费用和安全血线时打出。",
+            "keep_condition": "慢速对局可保留，快攻局不留。",
+            "counter_priority": "在其高费回合前压低血线。"
+          },
+          {
+            "name": "高效解牌",
+            "role": "拖入后期的基础",
+            "play_timing": "用于处理我方最关键威胁，不会轻易浪费。",
+            "keep_condition": "对快攻保留低费解牌。",
+            "counter_priority": "分批施压，避免一次投入被清空。"
+          },
+          {
+            "name": "回复/护甲牌",
+            "role": "稳定血线并拉长对局",
+            "play_timing": "血线危险或准备进入后期时使用。",
+            "keep_condition": "对快攻保留。",
+            "counter_priority": "制造连续两回合伤害，不要只押单回合爆发。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARLOCK",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Divergence Warlock",
+        "style": "combo",
+        "base_confidence": 0.12,
+        "signals": [
+          "Divergence",
+          "分歧",
+          "combo",
+          "组合"
+        ],
+        "game_plan": "证据不足时低置信处理；若看到相关核心牌，应优先判断对手启动回合和我方压血窗口。",
+        "sources": [
+          "HSGuru: Divergence Warlock",
+          "Hearthstone-Decks.net Standard: Divergence Warlock May 2026 sample"
+        ],
+        "source_notes": "当前可见但样本量较低。",
+        "win_condition": "围绕 Divergence 体系制造资源或场面反转，利用术士过牌寻找关键回合。",
+        "core_cards": [
+          {
+            "name": "Divergence 体系牌",
+            "role": "资源转换和反转核心",
+            "play_timing": "通常在能获得明显资源或场面收益时启动。",
+            "keep_condition": "慢速对局可保留启动牌。",
+            "counter_priority": "保持压力，逼迫其提前低收益启动。"
+          },
+          {
+            "name": "高效解牌",
+            "role": "拖入后期的基础",
+            "play_timing": "用于处理我方最关键威胁，不会轻易浪费。",
+            "keep_condition": "对快攻保留低费解牌。",
+            "counter_priority": "分批施压，避免一次投入被清空。"
+          },
+          {
+            "name": "回复/护甲牌",
+            "role": "稳定血线并拉长对局",
+            "play_timing": "血线危险或准备进入后期时使用。",
+            "keep_condition": "对快攻保留。",
+            "counter_priority": "制造连续两回合伤害，不要只押单回合爆发。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARLOCK",
+        "format": "standard",
+        "aliases": []
+      }
+    ],
+    "WARRIOR": [
+      {
+        "name": "Dragon Warrior",
+        "style": "midrange",
+        "base_confidence": 0.34,
+        "signals": [
+          "Dragon",
+          "龙",
+          "护甲",
+          "中速",
+          "随从质量"
+        ],
+        "game_plan": "按中速质量套牌处理，重视场面交换和节奏；不要让对手用高质量随从连续压制。",
+        "sources": [
+          "HSGuru: Dragon Warrior",
+          "Hearthstone-Decks.net Standard: Dragon Warrior May 2026 samples"
+        ],
+        "source_notes": "HSGuru 当前 Dragon Warrior 胜率较高；高传说页面也有近期 Dragon Warrior。",
+        "win_condition": "用龙体系稳定曲线和中期质量，靠高血量随从和后期龙牌压制。",
+        "core_cards": [
+          {
+            "name": "低费龙牌",
+            "role": "曲线和龙体系激活",
+            "play_timing": "前中期按曲线打出，保证后续龙协同。",
+            "keep_condition": "起手保留低费龙和防守曲线。",
+            "counter_priority": "尽量破坏其场面连续性。"
+          },
+          {
+            "name": "中期龙协同牌",
+            "role": "场面质量核心",
+            "play_timing": "有龙条件时打出，争夺中期主动。",
+            "keep_condition": "有龙曲线时保留。",
+            "counter_priority": "保留硬解处理关键龙随从。"
+          },
+          {
+            "name": "高费龙/终结牌",
+            "role": "后期资源和终结核心",
+            "play_timing": "在稳定血线后打出压制。",
+            "keep_condition": "起手不留。",
+            "counter_priority": "提前建立压力，避免被拖入龙牌质量局。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARRIOR",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Egg Warrior",
+        "style": "tempo",
+        "base_confidence": 0.3,
+        "signals": [
+          "Egg",
+          "蛋",
+          "亡语",
+          "护甲",
+          "buff"
+        ],
+        "game_plan": "注意亡语/蛋类随从的收益，解场顺序要避免帮助对手扩大场面。",
+        "sources": [
+          "HSGuru: Egg Warrior",
+          "Hearthstone-Decks.net Standard: Egg Warrior June 2026 Top Legend samples"
+        ],
+        "source_notes": "Hearthstone-Decks.net 6月初有多条 Egg Warrior 高传说样本。",
+        "win_condition": "利用蛋和亡语载体配合战士解场/护甲体系，形成难清场面和中期压制。",
+        "core_cards": [
+          {
+            "name": "蛋/亡语载体",
+            "role": "抗解场和铺场核心",
+            "play_timing": "通常在能被触发、增益或保护时打出。",
+            "keep_condition": "起手保留低费蛋和触发器。",
+            "counter_priority": "避免低收益解蛋；优先处理触发器和增益牌。"
+          },
+          {
+            "name": "亡语触发器",
+            "role": "把蛋转化为场面压力",
+            "play_timing": "有蛋或亡语目标时优先打出。",
+            "keep_condition": "有蛋时保留。",
+            "counter_priority": "先解触发器，降低爆发铺场。"
+          },
+          {
+            "name": "群体增益/返场牌",
+            "role": "把多个小随从转化为威胁",
+            "play_timing": "通常在已有多个随从时打出，形成一回合爆发。",
+            "keep_condition": "有低费铺场时可保留。",
+            "counter_priority": "不要让其保留宽场面进入增益回合。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARRIOR",
+        "format": "standard",
+        "aliases": []
+      },
+      {
+        "name": "Quest Warrior",
+        "style": "quest",
+        "base_confidence": 0.24,
+        "signals": [
+          "Quest",
+          "任务",
+          "武器",
+          "护甲"
+        ],
+        "game_plan": "关注任务进度和后续奖励；如果对手前期投入少，我方应尽快施压。",
+        "sources": [
+          "HSGuru: Quest Warrior",
+          "Hearthstone-Decks.net Standard: Quest Warrior June 2026 samples"
+        ],
+        "source_notes": "Quest Warrior 在 HSGuru 和 6月初高传说页面均可见。",
+        "win_condition": "尽早完成任务并通过武器、海盗或任务奖励建立持续伤害和资源优势。",
+        "core_cards": [
+          {
+            "name": "任务牌",
+            "role": "长期赢法和任务奖励来源",
+            "play_timing": "通常越早打越好，除非当前回合必须处理致命场面。",
+            "keep_condition": "起手必留。",
+            "counter_priority": "用场面压力迫使其任务回合亏节奏。"
+          },
+          {
+            "name": "任务推进牌",
+            "role": "稳定完成任务的关键资源",
+            "play_timing": "优先在能同时推进任务和处理场面时使用。",
+            "keep_condition": "保留低费任务推进牌。",
+            "counter_priority": "识别任务进度，提前规划击杀窗口。"
+          },
+          {
+            "name": "任务奖励/后期资源",
+            "role": "完成任务后的压倒性收益",
+            "play_timing": "完成任务后围绕奖励回合组织爆发或资源压制。",
+            "keep_condition": "起手通常不留高费奖励组件。",
+            "counter_priority": "尽量在任务完成前抢死或建立不可忽视场面。"
+          }
+        ],
+        "strategy_detail_level": "representative_core",
+        "class": "WARRIOR",
+        "format": "standard",
+        "aliases": []
+      }
+    ]
+  }
+}

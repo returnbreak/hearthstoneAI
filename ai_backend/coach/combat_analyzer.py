@@ -96,8 +96,7 @@ class CombatAnalyzer:
         收集当前状态下所有可以攻击的我方角色。
 
         包括：
-        - 我方场上可以攻击的随从（can_attack=True、攻击力>0、
-          未被冻结、非休眠、非免疫、有剩余攻击次数）
+        - 我方场上攻击次数未达上限、攻击力大于 0 且不受行动限制的随从
         - 我方英雄（如果装备了武器且满足类似条件）
 
         参数:
@@ -126,15 +125,7 @@ class CombatAnalyzer:
     @staticmethod
     def _can_attack(entity: dict[str, Any]) -> bool:
         """
-        判断一个实体（随从或英雄）当前是否可以执行攻击。
-
-        角色不能攻击的条件包括：
-        - can_attack 标志为 False（例如刚被召唤的随从、已攻击过的角色）
-        - 剩余攻击次数为 0
-        - 攻击力为 0
-        - 被冻结（Frozen）
-        - 处于休眠状态（Dormant）
-        - 自身免疫（Immune）状态下通常也不能攻击
+        根据攻击次数上限和公开限制判断角色当前能否攻击。
 
         参数:
             entity: 实体信息字典。
@@ -142,14 +133,24 @@ class CombatAnalyzer:
         返回:
             True 表示该实体可以攻击，False 表示不能。
         """
-        return (
-            bool(entity.get("can_attack"))
-            and int(entity.get("attacks_remaining") or 0) > 0
-            and int(entity.get("attack") or 0) > 0
-            and not entity.get("frozen")       # 被冻结的角色跳过攻击阶段
-            and not entity.get("dormant")       # 休眠中的随从无法行动
-            and not entity.get("immune")        # 免疫角色通常也不能主动攻击
-        )
+        if int(entity.get("attack") or 0) <= 0:
+            return False
+        if entity.get("frozen") or entity.get("dormant") or entity.get("cant_attack"):
+            return False
+
+        if entity.get("attacks_remaining") is not None:
+            try:
+                return int(entity.get("attacks_remaining") or 0) > 0
+            except (TypeError, ValueError):
+                return False
+
+        if entity.get("attacks_this_turn") is not None or entity.get("max_attacks_per_turn") is not None:
+            try:
+                return int(entity.get("attacks_this_turn") or 0) < int(entity.get("max_attacks_per_turn") or 1)
+            except (TypeError, ValueError):
+                return False
+
+        return bool(entity.get("can_attack")) and not entity.get("exhausted")
 
     @staticmethod
     def _attackable_minions(minions: list[dict[str, Any]]) -> list[dict[str, Any]]:

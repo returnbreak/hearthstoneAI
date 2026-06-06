@@ -1,8 +1,4 @@
-# HDT AI 助手 Python 后端依赖
-#
-# FastAPI — Web 框架，提供 WebSocket / REST API
-# uvicorn — ASGI 服务器，用于运行 FastAPI 应用
-#   启动命令: uv run uvicorn ai_backend.app:app --reload --host 127.0.0.1 --port 8765
-
 fastapi
 uvicorn[standard]
+langchain
+langchain-deepseek

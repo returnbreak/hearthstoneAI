@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HDT AI Assistant</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -20,9 +21,34 @@
     </section>
 
     <section class="grid">
-      <article class="panel hero-panel">
-        <h2>Heroes</h2>
-        <div class="heroes">
+      <article class="panel recommendation recommendation-primary">
+        <div class="panel-title-row">
+          <h2>Recommendation</h2>
+          <button id="ai-decision-button" type="button">AI Decision</button>
+        </div>
+        <div class="recommendation-head">
+          <strong id="recommendation-plan">--</strong>
+          <span id="recommendation-confidence">Confidence --</span>
+        </div>
+        <p id="recommendation-summary">No recommendation</p>
+        <p id="recommendation-risk"></p>
+        <ol id="recommendation-actions"></ol>
+        <section id="recommendation-deck-plan" class="deck-plan" hidden>
+          <h3>Deck Plan</h3>
+          <strong id="recommendation-deck-name">--</strong>
+          <p id="recommendation-win-condition"></p>
+          <div id="recommendation-core-cards"></div>
+        </section>
+      </article>
+
+      <article class="panel status-summary">
+        <h2>Game Status</h2>
+        <div class="status-turn">
+          <span>Turn</span>
+          <strong id="turn">--</strong>
+        </div>
+        <p id="mana">Mana --</p>
+        <div class="status-heroes">
           <div class="hero">
             <span>Me</span>
             <strong id="my-hero">--</strong>
@@ -32,22 +58,6 @@
             <strong id="enemy-hero">--</strong>
           </div>
         </div>
-      </article>
-
-      <article class="panel">
-        <h2>Turn</h2>
-        <div class="large" id="turn">--</div>
-        <p id="mana">Mana --</p>
-      </article>
-
-      <article class="panel wide recommendation">
-        <h2>Recommendation</h2>
-        <div class="recommendation-head">
-          <strong id="recommendation-plan">--</strong>
-          <span id="recommendation-confidence">Confidence --</span>
-        </div>
-        <p id="recommendation-summary">No recommendation</p>
-        <ol id="recommendation-actions"></ol>
       </article>
 
       <article class="panel wide">

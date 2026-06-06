@@ -1,16 +1,12 @@
 namespace HdtAiAssistant.Core.Models
 {
-    /// <summary>
-    /// Public card data captured for a card entity at a point in time.
-    /// </summary>
-    public sealed class CardSnapshot
+    public sealed class DeckCardMetadata
     {
-        public int EntityId { get; set; }
         public string CardId { get; set; }
         public int DbFId { get; set; }
         public string Name { get; set; }
         public int Cost { get; set; }
         public string Type { get; set; }
-        public string Text { get; set; }
+        public int Count { get; set; }
     }
 }

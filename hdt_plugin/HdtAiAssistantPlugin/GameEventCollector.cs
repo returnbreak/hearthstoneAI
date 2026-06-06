@@ -1,6 +1,8 @@
 using System;
+using Hearthstone_Deck_Tracker.API;
 using Hearthstone_Deck_Tracker.Hearthstone;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
+using HdtAiAssistant.Core.Events;
 using HdtAiAssistant.Core.Models;
 
 namespace HdtAiAssistantPlugin
@@ -59,7 +61,14 @@ namespace HdtAiAssistantPlugin
         /// <param name="player">事件所属玩家（"me" / "opponent"）。</param>
         /// <param name="type">事件类型（card_played、card_drawn 等）。</param>
         /// <param name="card">HDT 卡牌对象。</param>
-        public GameEvent CreateCardEvent(string gameId, int turn, string player, string type, Card card)
+        public GameEvent CreateCardEvent(
+            string gameId,
+            int turn,
+            string player,
+            string type,
+            Card card,
+            int? entityId = null,
+            EventTarget target = null)
         {
             return new GameEvent
             {
@@ -68,9 +77,11 @@ namespace HdtAiAssistantPlugin
                 Turn = turn,
                 Player = player,
                 Type = type,
+                EntityId = entityId,
                 CardId = card == null ? null : card.get_Id(),
                 DbFId = card == null ? 0 : card.DbfId,
                 Name = card == null ? null : card.LocalizedName,
+                Target = target
             };
         }
 
@@ -96,6 +107,50 @@ namespace HdtAiAssistantPlugin
                 DbFId = entity == null || entity.Card == null ? 0 : entity.Card.DbfId,
                 Name = entity == null ? null : entity.LocalizedName ?? entity.Name
             };
+        }
+
+        public GameEvent CreateAttackEvent(
+            string gameId,
+            int turn,
+            string player,
+            AttackInfo attackInfo,
+            int? attackerEntityId = null,
+            EventTarget defender = null)
+        {
+            var gameEvent = AttackEventFactory.Create(
+                gameId,
+                turn,
+                player,
+                ToAttackParticipant(attackInfo == null ? null : attackInfo.Attacker),
+                ToAttackParticipant(attackInfo == null ? null : attackInfo.Defender));
+            gameEvent.EntityId = attackerEntityId;
+            if(defender != null)
+                gameEvent.Target = defender;
+            return gameEvent;
+        }
+
+        private static AttackParticipant ToAttackParticipant(Card card)
+        {
+            if(card == null)
+                return null;
+
+            return new AttackParticipant
+            {
+                CardId = card.get_Id(),
+                DbFId = card.DbfId,
+                Name = card.LocalizedName ?? card.Name,
+                Type = ReadCardType(card),
+                Attack = card.Attack
+            };
+        }
+
+        private static string ReadCardType(Card card)
+        {
+            if(card == null)
+                return null;
+            if(card.TypeEnum.HasValue)
+                return card.TypeEnum.Value.ToString();
+            return card.Type;
         }
     }
 }

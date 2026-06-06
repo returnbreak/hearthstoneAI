@@ -11,9 +11,8 @@ namespace HdtAiAssistant.Core.Models
         public int Health { get; set; }
         public int Damage { get; set; }
         public int ZonePosition { get; set; }
-        public bool CanAttack { get; set; }
         public int AttacksThisTurn { get; set; }
-        public int AttacksRemaining { get; set; }
+        public int MaxAttacksPerTurn { get; set; }
         public bool Taunt { get; set; }
         public bool DivineShield { get; set; }
         public bool Stealth { get; set; }

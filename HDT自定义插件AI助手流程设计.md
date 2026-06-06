@@ -416,8 +416,10 @@ fallback 输出示例：
 ```text
 turn
 active_player
-mana.current
-mana.max
+my_mana.current
+my_mana.max
+enemy_mana.current
+enemy_mana.max
 my_hero.hp
 my_hero.armor
 enemy_hero.hp
@@ -429,24 +431,45 @@ enemy_board entity summary
 
 同一哈希不重复请求 LLM。
 
+新状态日志只生成 `my_mana` 和 `enemy_mana`。后端读取旧日志时仍可把
+旧 `mana` 当作我方法力回退值，但新插件不再输出重复的 `mana`。
+
+## 7.1.1 日志字段精简
+
+- 手牌和 `known_enemy_cards` 不再记录恒定或无稳定含义的 `zone/source`。
+- 事件基础字段固定保留，卡牌、目标、伤害、原因和结果字段按实际值输出。
+- 无目标事件不输出 `target`，而不是记录 `"target": null`。
+- 推荐日志使用 `summary` 表示推荐理由，不再重复记录同值 `reason`。
+- AI 调试日志保存结构化请求，不重复保存 JSON 字符串形式的 human prompt。
+- AI 调试日志保留解析后的模型输出，不重复保存同内容的原始响应字符串。
+
 ### 7.2 自动触发条件
 
 自动触发 AI 建议：
 
-- 我方回合开始。
-- 敌方回合结束后进入我方可行动状态。
-- 我方手牌、费用或场面发生重大变化。
+- 我方回合开始，且 `my_mana.current` 已经刷新为可用法力后，自动触发一次正式 AI 决策。
+- 如果同一我方回合已经触发过，但后续状态中手牌数量增加，说明抽牌/发现/可交易等结果刚写入状态，需要再次触发 AI 决策。
+- 对手回合中，如果 `enemy_mana.current = 0`，且敌方英雄、敌方随从都没有可见攻击动作，则构造“即将轮到我方”的预测状态，提前触发一次预热 AI 决策。
+- 同一对局同一回合只触发一次正式决策；同一预测回合只触发一次预热决策。
 
 不自动触发：
 
 - 对手回合中普通动画变化。
+- 对手仍有可用法力。
+- 对手英雄或随从仍有可见攻击动作。
 - UI 刷新。
 - 重复 `OnUpdate()`。
 - 状态哈希无变化。
 
 手动触发：
 
-- 用户点击“重新分析”。
+- 用户点击“重新分析”仍可作为调试入口，但实战主要依赖后端自动触发。
+
+日志区别：
+
+- 正式我方回合触发：如果 AI 输出通过校验，写入 `recommendations.jsonl`。
+- 对手空蓝预热触发：只写入 `ai_decision_attempts.jsonl` 并推送 UI，不写入 `recommendations.jsonl`。
+- 触发都会带 `trigger` 字段，常见值为 `own_turn`、`hand_increased` 和 `opponent_spent_out`。
 
 ## 8. 日志和文件输出
 
@@ -560,9 +583,8 @@ data/replays/replay_test_report.md
 
 ```json
 {
-  "can_attack": true,
   "attacks_this_turn": 0,
-  "attacks_remaining": 1,
+  "max_attacks_per_turn": 2,
   "zone_position": 2,
   "taunt": true,
   "divine_shield": false,
@@ -589,9 +611,8 @@ data/replays/replay_test_report.md
 ```json
 {
   "attack": 3,
-  "can_attack": true,
   "attacks_this_turn": 0,
-  "attacks_remaining": 1,
+  "max_attacks_per_turn": 1,
   "immune": false,
   "frozen": false
 }
@@ -678,14 +699,13 @@ AI 负责策略排序、复杂卡牌文本理解和解释。
 
 ```text
 1. 遍历 my_board
-2. 检查 can_attack = true
-3. 检查 attacks_remaining > 0
-4. 检查 attack > 0
-5. 排除 frozen、dormant、immune、cant_attack、exhausted
-6. 读取 enemy_board 中可被攻击的随从
-7. 如果敌方存在 taunt，只允许攻击 taunt 随从
-8. 如果敌方不存在 taunt，允许攻击可见随从和非免疫敌方英雄
-9. 输出 minion_attack action
+2. 检查 attacks_this_turn < max_attacks_per_turn
+3. 检查 attack > 0
+4. 排除 frozen、dormant、cant_attack、exhausted
+5. 读取 enemy_board 中可被攻击的随从
+6. 如果敌方存在 taunt，只允许攻击 taunt 随从
+7. 如果敌方不存在 taunt，允许攻击可见随从和非免疫敌方英雄
+8. 输出 minion_attack action
 ```
 
 示例：
@@ -704,12 +724,11 @@ AI 负责策略排序、复杂卡牌文本理解和解释。
 
 ```text
 1. 检查 my_hero.attack > 0
-2. 检查 my_hero.can_attack = true
-3. 检查 my_hero.attacks_remaining > 0
-4. 排除 frozen、immune
-5. 按嘲讽规则生成目标
-6. 输出 hero_attack action
-7. 在 action 中标记 self_damage_risk，供 AI 判断是否值得撞怪
+2. 检查 my_hero.attacks_this_turn < my_hero.max_attacks_per_turn
+3. 排除 frozen、cant_attack、exhausted
+4. 按嘲讽规则生成目标
+5. 输出 hero_attack action
+6. 在 action 中标记 self_damage_risk，供 AI 判断是否值得撞怪
 ```
 
 示例：
@@ -849,7 +868,7 @@ AI 负责策略排序、复杂卡牌文本理解和解释。
 - `total_cost <= my_mana.current`。
 - 同一手牌实体不能在同一序列中重复打出。
 - 打出随从牌后，我方场面不能超过 7 个随从。
-- 同一攻击者使用次数不能超过 `attacks_remaining`。
+- 同一攻击者使用次数不能超过 `max_attacks_per_turn - attacks_this_turn`。
 - 英雄技能同一序列最多使用一次。
 - 敌方有嘲讽且序列尚未处理嘲讽时，不能攻击敌方英雄。
 - 攻击目标不能是潜行、免疫、休眠或不存在的实体。
@@ -965,7 +984,16 @@ Prompt 不应只包含原始 `GameState`。应包含：
 
 UI 可以把结构化动作翻译成人类可读文本，但日志和回放测试应保留结构化动作，便于校验。
 
-### 14.13 当前运行流程修订：先枚举，再交给 AI 决策
+### 14.13 动作空间补充：可交易与武器
+
+当前动作空间新增两类细节：
+
+- `trade_card`：当手牌文本或机制中识别到 `可交易` / `TRADEABLE`，且当前法力不少于 1 时，生成 1 费换牌动作。该动作表示花费 1 点法力把该牌洗回牌库并抽一张牌。
+- 武器牌：`play_card` 会携带 `card_type = "WEAPON"`、`weapon_attack`、`weapon_durability` 和卡牌文本。打出武器后，不再在同一序列自动追加盗贼英雄技能，避免用小匕首覆盖刚装备的武器。
+
+如果武器牌数据包含攻击力，动作空间会尝试补充“打出武器后英雄攻击”的 `hero_attack` 动作。该动作仍遵守嘲讽、免疫等公开规则。
+
+### 14.14 当前运行流程修订：先枚举，再交给 AI 决策
 
 当前版本不再执行后端推荐逻辑。流程改为：
 
@@ -1033,7 +1061,7 @@ AI 决策阶段必须遵守：
 - 可以根据提示词原则判断“斩杀、解场、保血、抢血、节奏、资源”等优先级。
 - 后端只校验合法性，不替 AI 判断策略优劣。
 
-### 14.14 推荐日志写入流程修订
+### 14.15 推荐日志写入流程修订
 
 动作空间是 AI 决策输入，不是最终推荐结果。因此当前流程中：
 
@@ -1051,9 +1079,54 @@ AI 选择具体打法
 
 这意味着网页端可以继续频繁请求动作空间，但不会再把每次请求都写成推荐日志。推荐日志只用于保存 AI 最终给出的打法，例如 `chosen_sequence_id`、具体 `actions`、理由、风险和校验结果。
 
-### 14.15 HDT 接入过滤流程
+### 14.16 HDT 接入过滤流程
 
 为避免 HDT 重发历史记录导致日志时间线混乱，`/ws/hdt` 当前在写日志前执行过滤：
+
+### 14.16 当前 AI 决策执行流程
+
+当前 AI 决策链路已经从“只生成动作空间”推进到“AI 手动选择合法序列”：
+
+```text
+1. 前端点击 AI Decision
+2. 前端 POST /api/ai/decision
+3. 后端读取 StateStore.latest_state
+4. RecommendationEngine 生成 plan = action_space
+5. DecisionPromptBuilder 构造 prompt
+6. LangChainDeepSeekDecisionClient 通过 LangChain 流式请求 DeepSeek v4 flash 输出 JSON
+7. RecommendationValidator 校验 chosen_sequence_id 是否存在于 legal_sequences
+8. 校验通过：返回 plan = ai_decision，并写入 recommendations.jsonl
+9. 校验失败：返回 plan = ai_decision_rejected，不写推荐日志
+10. 未配置模型或请求失败：返回 plan = unavailable，不写推荐日志
+```
+
+接口：
+
+```text
+POST /api/ai/decision
+```
+
+配置：
+
+```powershell
+$env:DEEPSEEK_API_KEY="..."
+$env:DEEPSEEK_MODEL="deepseek-v4-flash"
+```
+
+如果没有配置 `DEEPSEEK_API_KEY`，接口仍然可用，但只返回不可用状态，方便前端和日志链路在无模型环境下继续测试。
+
+模型必须返回结构化 JSON：
+
+```json
+{
+  "chosen_sequence_id": "seq-001",
+  "reason": "选择这条路线的原因",
+  "risk": "这条路线的风险",
+  "confidence": 0.7
+}
+```
+
+后端不会接受模型自造的动作。当前最可靠路径是让模型选择已有 `legal_sequences` 中的 `sequence_id`。后续如果需要让模型组合自定义 `actions`，必须继续通过 `RecommendationValidator` 与 `legal_actions` 比对。
 
 ```text
 HDT WebSocket 消息
@@ -1073,3 +1146,145 @@ IngestFilter.accept(envelope)
 - 事件指纹不包含 `timestamp`，因为历史回放事件可能会带新的接收时间，但事件本身相同。
 
 这个规则解决的是“旧时间线重新写入当前对局目录”的问题。它不会完整判断所有炉石事件是否合法，只负责保护日志顺序和去重。
+## 14.17 当前流程修订：套牌意识上下文生成
+
+当前 AI 决策链路在 `RecommendationEngine` 生成合法动作空间之后、`DecisionPromptBuilder` 构建 prompt 时，会同步生成 `matchup_context`。
+
+流程如下：
+
+```text
+1. HDT 插件推送公开 GameState
+2. 后端用 HearthstoneJSON 补充卡牌名称、费用、类型、文本
+3. ActionPlanner 生成 legal_actions 和 legal_sequences
+4. MatchupContextBuilder 读取 enemy_hero.class、known_enemy_cards、enemy_board、recent_events
+5. MatchupContextBuilder 生成候选套牌、evidence、role_assessment
+6. DecisionPromptBuilder 只把最高分候选压缩为 matchup_context.identified_enemy_deck
+6. DecisionPromptBuilder 把 game_state、matchup_context、action_space 一起写入 prompt
+7. LangChain 调用模型，让模型在 legal_sequences 中选择打法
+8. RecommendationValidator 校验 chosen_sequence_id
+```
+
+`matchup_context` 的用途是帮助模型形成“对局预案”，例如：
+
+- 对手是猎人时，默认考虑“伙伴猎”和“快攻猎”两类可能。
+- 如果早期看到低费野兽、直伤或多个攻击源，快攻倾向提高。
+- 如果我方职业和套牌速度慢于对手，应更重视解场、血量和反杀窗口。
+- 如果我方已经有合法斩杀，则仍然优先选择斩杀，不被套牌预案覆盖。
+
+该上下文不是实时联网环境结论，也不是隐藏信息读取。它只能基于公开信息形成概率判断。Prompt 已明确要求模型把它当作“不确定背景”，不能说“我知道对手就是某套牌”。
+
+环境数据更新采用外部文件唯一数据源模式：
+
+```text
+唯一读取位置：hearthstone_data/decks/strategy_context.zhCN.json
+代码中不再保存职业原型表
+```
+
+该文件只保留一个主数据区：`deck_archetypes`。它按职业分组，每个职业维护 1-3 套代表性套牌。每套牌都需要维护套牌赢法、核心牌、核心牌出牌时机和保留条件。己方和对手都读取同一份套牌数据：对手按职业和公开信息打分，己方按套牌名、别名和签名卡匹配。后续维护套牌策略时只修改这个统一文件，不再拆成多个 meta JSON。
+
+如果该文件存在且格式正确，`MatchupContextBuilder.from_default_sources()` 会先根据职业和公开卡牌给套牌原型打分。`DecisionPromptBuilder` 发送给模型时只保留最高分的 `matchup_context.identified_enemy_deck`，包含原型名、置信度、证据、对手赢法、对手核心牌时机和对局原则。如果文件缺失、JSON 无效或没有可用职业列表，则不发送已识别套牌。AI 此时仍然根据公开局面、费用、卡牌文本和合法动作空间决策，但不会收到环境套牌候选。
+
+`action_space.lethal_sequence_ids` 会列出当前动作空间中已经达到敌方血量加护甲的合法序列。该列表非空时，模型必须选择其中一个序列，不能为了资源牌、解场或站场放弃斩杀。
+
+提示词补充了两个资源使用原则：
+
+- 没有紧急场面压力或斩杀竞速时，前期可打的资源引擎牌应优先打出，例如伊莉斯。
+- 偷到、发现到或高价值解场牌不必一能打就打；当前压力低时可以等待更多随从或更关键目标，提高收益。
+
+## 14.18 当前流程修订：己方套牌策略进入 AI 决策
+
+开局后的决策数据流调整为：
+
+```text
+HDT ActiveDeck
+  -> game_metadata.deck
+  -> CardCatalog 补充完整卡牌文本
+  -> StateStore 独立保存 game_metadata
+  -> decision_state 合并 latest_state + recent_events + game_metadata
+  -> DeckStrategyContextBuilder 匹配 strategy_context.zhCN.json 的 deck_archetypes
+  -> my_deck_context
+  -> DecisionPromptBuilder
+  -> DeepSeek 选择 legal_sequence
+```
+
+自动预热、己方回合手牌增加刷新和 `POST /api/ai/decision` 手动请求都使用
+`decision_state()`，避免只有某一种触发方式能够看到套牌信息。
+
+`my_deck_context` 要求模型先回答三个内部问题：
+
+1. 我方是什么类型的套牌，当前是主动方还是防守方。
+2. 套牌通过什么方式获胜。
+3. 当前手中的核心牌是否到了正确出牌时机，还是应继续保留。
+
+之后模型才能从后端提供的合法动作序列中选择。非爆发斩杀或组合套牌在前期默认重视
+随从占场和场面延续性，同费用随从通常高于无必要目标的法术；已有随从通常应优先保留。
+该原则存在四类例外：高收益交换、必须保命、阻断对手关键机制、已经形成明确斩杀。
+
+外部策略文件的核心结构为：
+
+```json
+{
+  "name": "任务发现法",
+  "class": "MAGE",
+  "format": "standard",
+  "style": "quest_value",
+  "win_condition": "完成任务后依靠持续资源取得优势",
+  "signature_cards": ["TLC_460"],
+  "burst_exception": false,
+  "core_cards": [
+    {
+      "card_id": "TLC_460",
+      "name": "禁忌序列",
+      "role": "任务与核心赢法",
+      "play_timing": "通常第一回合尽早打出",
+      "keep_condition": "起手必留"
+    }
+  ]
+}
+```
+
+后续增加或更新套牌时只维护
+`hearthstone_data/decks/strategy_context.zhCN.json`，不把套牌知识重新写回 Python 代码。
+
+如果后续需要更新环境，只需要更新该 JSON 文件。例如：
+
+```json
+{
+  "HUNTER": [
+    {
+      "name": "伙伴猎",
+      "style": "tempo",
+      "base_confidence": 0.36,
+      "signals": ["伙伴"],
+      "win_condition": "前期保持猎人节奏，中后期用伙伴体系持续铺场和制造质量压力。",
+      "core_cards": [
+        {
+          "name": "Animal Companion / 野兽伙伴",
+          "role": "中期伙伴压力",
+          "play_timing": "3费按曲线打出，配合后续伙伴增益或续航。",
+          "keep_condition": "有前期曲线时保留。",
+          "counter_priority": "优先处理能持续输出或保护场面的伙伴。"
+        }
+      ],
+      "game_plan": "按中速节奏处理，注意中期随从质量和爆发。"
+    },
+    {
+      "name": "快攻猎",
+      "style": "aggro",
+      "base_confidence": 0.34,
+      "signals": ["奥术射击", "野兽", "低费"],
+      "win_condition": "前期压低血线，后期用直伤和英雄技能收尾。",
+      "core_cards": [
+        {
+          "name": "低费攻击源",
+          "role": "前期可重复伤害",
+          "play_timing": "前两回合优先按费打出。",
+          "keep_condition": "起手优先保留。",
+          "counter_priority": "优先解能连续攻击或吃增益的随从。"
+        }
+      ],
+      "game_plan": "如果我方速度慢于对手，优先解关键场面并保护血量。"
+    }
+  ]
+}
+```

@@ -34,6 +34,44 @@ class CombatAnalyzerTests(unittest.TestCase):
             attacks,
         )
 
+    def test_attack_limit_replaces_can_attack_and_attacks_remaining(self):
+        ready = minion(1, attack=3, health=2)
+        ready["attacks_this_turn"] = 1
+        ready["max_attacks_per_turn"] = 2
+        ready["exhausted"] = False
+        exhausted = minion(2, attack=4, health=4)
+        exhausted["attacks_this_turn"] = 1
+        exhausted["max_attacks_per_turn"] = 1
+        state = sample_state(
+            enemy_hero={"hp": 10, "immune": False},
+            my_board=[ready, exhausted],
+            enemy_board=[],
+        )
+
+        attacks = CombatAnalyzer().legal_attacks(state)
+
+        self.assertEqual({1}, {attack["source"] for attack in attacks})
+
+    def test_attack_limit_or_remaining_attacks_takes_priority_over_stale_exhausted_flag(self):
+        ready = minion(1, attack=6, health=4)
+        ready["attacks_this_turn"] = 0
+        ready["max_attacks_per_turn"] = 2
+        ready["attacks_remaining"] = 2
+        ready["exhausted"] = True
+        ready["can_attack"] = False
+        state = sample_state(
+            enemy_hero={"hp": 7, "immune": False},
+            my_board=[ready],
+            enemy_board=[],
+        )
+
+        attacks = CombatAnalyzer().legal_attacks(state)
+
+        self.assertIn(
+            {"source": 1, "target": "enemy_hero", "target_type": "hero", "damage": 6},
+            attacks,
+        )
+
 
 class LethalCheckerTests(unittest.TestCase):
     def test_finds_attack_lethal_when_face_damage_is_enough(self):
@@ -114,7 +152,9 @@ def sample_state(enemy_hero, my_board, enemy_board):
             "hp": 20,
             "armor": 0,
             "attack": 0,
-            "can_attack": False,
+            "attacks_this_turn": 0,
+            "max_attacks_per_turn": 1,
+            "frozen": False,
         },
         "enemy_hero": enemy_hero,
         "my_board": my_board,
@@ -129,8 +169,9 @@ def minion(entity_id, attack, health, can_attack=False, taunt=False):
         "attack": attack,
         "health": health,
         "damage": 0,
-        "can_attack": can_attack,
-        "attacks_remaining": 1 if can_attack else 0,
+        "attacks_this_turn": 0 if can_attack else 1,
+        "max_attacks_per_turn": 1,
+        "exhausted": not can_attack,
         "taunt": taunt,
         "stealth": False,
         "immune": False,

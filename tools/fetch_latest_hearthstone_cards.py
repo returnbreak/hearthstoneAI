@@ -30,7 +30,7 @@ EXCLUDED_WILD_SETS = {"HERO_SKINS", "PLACEHOLDER_202204"}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fetch latest HearthstoneJSON zhCN card data and 256x rendered card images.")
-    parser.add_argument("--output", default="hearthstone_data/latest", help="Output directory.")
+    parser.add_argument("--output", default="hearthstone_data/cards", help="Output directory.")
     parser.add_argument("--download-images", action="store_true", help="Download rendered 256x zhCN card images.")
     parser.add_argument("--image-scope", choices=("standard", "wild", "all"), default="all")
     parser.add_argument("--workers", type=int, default=24)

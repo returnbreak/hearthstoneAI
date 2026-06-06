@@ -43,6 +43,19 @@ namespace HdtAiAssistant.Core.Publishing
             return builder.ToString();
         }
 
+        public static string WriteGameMetadataEnvelope(GameMetadata metadata)
+        {
+            var builder = new StringBuilder();
+            builder.Append('{');
+            WriteProperty(builder, "type", "game_metadata", true);
+            WriteProperty(builder, "game_id", metadata == null ? null : metadata.GameId, false);
+            WriteProperty(builder, "captured_at", metadata == null ? null : metadata.CapturedAt, false);
+            builder.Append(",\"deck\":");
+            WriteDeckMetadata(builder, metadata);
+            builder.Append('}');
+            return builder.ToString();
+        }
+
         /// <summary>将 GameState 对象序列化为 JSON 对象。</summary>
         public static void WriteGameState(StringBuilder builder, GameState state)
         {
@@ -62,8 +75,6 @@ namespace HdtAiAssistant.Core.Publishing
             WriteHero(builder, state.MyHero);
             builder.Append(",\"enemy_hero\":");
             WriteHero(builder, state.EnemyHero);
-            builder.Append(",\"mana\":");
-            WriteMana(builder, state.Mana);
             builder.Append(",\"my_mana\":");
             WriteMana(builder, state.MyMana);
             builder.Append(",\"enemy_mana\":");
@@ -94,20 +105,28 @@ namespace HdtAiAssistant.Core.Publishing
             }
 
             builder.Append('{');
-            WriteProperty(builder, "game_id", gameEvent.GameId, true);
-            WriteProperty(builder, "timestamp", gameEvent.Timestamp, false);
-            WriteProperty(builder, "turn", gameEvent.Turn, false);
-            WriteProperty(builder, "player", gameEvent.Player, false);
-            WriteProperty(builder, "type", gameEvent.Type, false);
-            WriteProperty(builder, "entity_id", gameEvent.EntityId, false);
-            WriteProperty(builder, "card_id", gameEvent.CardId, false);
-            WriteProperty(builder, "dbf_id", gameEvent.DbFId, false);
-            WriteProperty(builder, "name", gameEvent.Name, false);
-            WriteProperty(builder, "zone_from", gameEvent.ZoneFrom, false);
-            WriteProperty(builder, "zone_to", gameEvent.ZoneTo, false);
-            WriteProperty(builder, "target_entity_id", gameEvent.TargetEntityId, false);
-            WriteProperty(builder, "reason", gameEvent.Reason, false);
-            WriteProperty(builder, "result", gameEvent.Result, false);
+            var first = true;
+            WriteOptionalProperty(builder, "game_id", gameEvent.GameId, ref first);
+            WriteOptionalProperty(builder, "timestamp", gameEvent.Timestamp, ref first);
+            WriteProperty(builder, "turn", gameEvent.Turn, first);
+            first = false;
+            WriteOptionalProperty(builder, "player", gameEvent.Player, ref first);
+            WriteOptionalProperty(builder, "type", gameEvent.Type, ref first);
+            WriteOptionalPositiveProperty(builder, "entity_id", gameEvent.EntityId, ref first);
+            WriteOptionalProperty(builder, "card_id", gameEvent.CardId, ref first);
+            WriteOptionalPositiveProperty(builder, "dbf_id", gameEvent.DbFId, ref first);
+            WriteOptionalProperty(builder, "name", gameEvent.Name, ref first);
+            if(gameEvent.Target != null)
+            {
+                if(!first)
+                    builder.Append(',');
+                builder.Append("\"target\":");
+                WriteEventTarget(builder, gameEvent.Target);
+                first = false;
+            }
+            WriteOptionalPositiveProperty(builder, "damage_amount", gameEvent.DamageAmount, ref first);
+            WriteOptionalProperty(builder, "reason", gameEvent.Reason, ref first);
+            WriteOptionalProperty(builder, "result", gameEvent.Result, ref first);
             builder.Append('}');
         }
 
@@ -145,9 +164,8 @@ namespace HdtAiAssistant.Core.Publishing
             WriteProperty(builder, "hp", hero.Hp, false);
             WriteProperty(builder, "armor", hero.Armor, false);
             WriteProperty(builder, "attack", hero.Attack, false);
-            WriteProperty(builder, "can_attack", hero.CanAttack, false);
             WriteProperty(builder, "attacks_this_turn", hero.AttacksThisTurn, false);
-            WriteProperty(builder, "attacks_remaining", hero.AttacksRemaining, false);
+            WriteProperty(builder, "max_attacks_per_turn", hero.MaxAttacksPerTurn, false);
             WriteProperty(builder, "immune", hero.Immune, false);
             WriteProperty(builder, "frozen", hero.Frozen, false);
             builder.Append('}');
@@ -203,8 +221,60 @@ namespace HdtAiAssistant.Core.Publishing
             WriteProperty(builder, "cost", card.Cost, false);
             WriteProperty(builder, "type", card.Type, false);
             WriteProperty(builder, "text", card.Text, false);
-            WriteProperty(builder, "zone", card.Zone, false);
-            WriteProperty(builder, "source", card.Source, false);
+            builder.Append('}');
+        }
+
+        private static void WriteDeckMetadata(StringBuilder builder, GameMetadata metadata)
+        {
+            if(metadata == null)
+            {
+                builder.Append("null");
+                return;
+            }
+
+            builder.Append('{');
+            WriteProperty(builder, "deck_available", metadata.DeckAvailable, true);
+            WriteProperty(builder, "deck_id", metadata.DeckId, false);
+            WriteProperty(builder, "name", metadata.DeckName, false);
+            WriteProperty(builder, "player_class", metadata.PlayerClass, false);
+            WriteProperty(builder, "format", metadata.Format, false);
+            builder.Append(",\"cards\":");
+            WriteDeckCards(builder, metadata.Cards);
+            builder.Append('}');
+        }
+
+        private static void WriteDeckCards(StringBuilder builder, IEnumerable<DeckCardMetadata> cards)
+        {
+            builder.Append('[');
+            var first = true;
+            if(cards != null)
+            {
+                foreach(var card in cards)
+                {
+                    if(!first)
+                        builder.Append(',');
+                    first = false;
+                    WriteDeckCard(builder, card);
+                }
+            }
+            builder.Append(']');
+        }
+
+        private static void WriteDeckCard(StringBuilder builder, DeckCardMetadata card)
+        {
+            if(card == null)
+            {
+                builder.Append("null");
+                return;
+            }
+
+            builder.Append('{');
+            WriteProperty(builder, "card_id", card.CardId, true);
+            WriteProperty(builder, "dbf_id", card.DbFId, false);
+            WriteProperty(builder, "name", card.Name, false);
+            WriteProperty(builder, "cost", card.Cost, false);
+            WriteProperty(builder, "type", card.Type, false);
+            WriteProperty(builder, "count", card.Count, false);
             builder.Append('}');
         }
 
@@ -245,9 +315,8 @@ namespace HdtAiAssistant.Core.Publishing
             WriteProperty(builder, "health", minion.Health, false);
             WriteProperty(builder, "damage", minion.Damage, false);
             WriteProperty(builder, "zone_position", minion.ZonePosition, false);
-            WriteProperty(builder, "can_attack", minion.CanAttack, false);
             WriteProperty(builder, "attacks_this_turn", minion.AttacksThisTurn, false);
-            WriteProperty(builder, "attacks_remaining", minion.AttacksRemaining, false);
+            WriteProperty(builder, "max_attacks_per_turn", minion.MaxAttacksPerTurn, false);
             WriteProperty(builder, "taunt", minion.Taunt, false);
             WriteProperty(builder, "divine_shield", minion.DivineShield, false);
             WriteProperty(builder, "stealth", minion.Stealth, false);
@@ -287,6 +356,22 @@ namespace HdtAiAssistant.Core.Publishing
             builder.Append(']');
         }
 
+        private static void WriteEventTarget(StringBuilder builder, EventTarget target)
+        {
+            if(target == null)
+            {
+                builder.Append("null");
+                return;
+            }
+
+            builder.Append('{');
+            WriteProperty(builder, "entity_id", target.EntityId, true);
+            WriteProperty(builder, "card_id", target.CardId, false);
+            WriteProperty(builder, "name", target.Name, false);
+            WriteProperty(builder, "type", target.Type, false);
+            builder.Append('}');
+        }
+
         /// <summary>写入一个字符串类型的 JSON 属性，null 值输出为 null。</summary>
         private static void WriteProperty(StringBuilder builder, string name, string value, bool first)
         {
@@ -307,12 +392,59 @@ namespace HdtAiAssistant.Core.Publishing
             builder.Append('"').Append(Escape(name)).Append("\":").Append(value);
         }
 
+        private static void WriteProperty(StringBuilder builder, string name, int? value, bool first)
+        {
+            if(!first)
+                builder.Append(',');
+            builder.Append('"').Append(Escape(name)).Append("\":");
+            if(value.HasValue)
+                builder.Append(value.Value);
+            else
+                builder.Append("null");
+        }
+
         /// <summary>写入一个布尔类型的 JSON 属性。</summary>
         private static void WriteProperty(StringBuilder builder, string name, bool value, bool first)
         {
             if(!first)
                 builder.Append(',');
             builder.Append('"').Append(Escape(name)).Append("\":").Append(value ? "true" : "false");
+        }
+
+        private static void WriteOptionalProperty(
+            StringBuilder builder,
+            string name,
+            string value,
+            ref bool first)
+        {
+            if(string.IsNullOrEmpty(value))
+                return;
+            WriteProperty(builder, name, value, first);
+            first = false;
+        }
+
+        private static void WriteOptionalPositiveProperty(
+            StringBuilder builder,
+            string name,
+            int value,
+            ref bool first)
+        {
+            if(value <= 0)
+                return;
+            WriteProperty(builder, name, value, first);
+            first = false;
+        }
+
+        private static void WriteOptionalPositiveProperty(
+            StringBuilder builder,
+            string name,
+            int? value,
+            ref bool first)
+        {
+            if(!value.HasValue || value.Value <= 0)
+                return;
+            WriteProperty(builder, name, value, first);
+            first = false;
         }
 
         /// <summary>

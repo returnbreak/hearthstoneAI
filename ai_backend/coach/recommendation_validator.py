@@ -55,7 +55,11 @@ class RecommendationValidator:
         # 层级 1：序列级验证——推荐直接引用了预生成的序列 ID
         sequence_id = recommendation.get("chosen_sequence_id")
         if sequence_id:
-            if self._sequence_exists(sequence_id, action_space):
+            sequence = self._sequence_by_id(sequence_id, action_space)
+            if sequence is not None:
+                fatal_reason = self._fatal_sequence_reason(sequence.get("actions") or [], action_space)
+                if fatal_reason:
+                    return {"validation_status": "failed", "reason": fatal_reason}
                 return {"validation_status": "passed", "reason": "chosen_sequence_id is legal"}
             return {"validation_status": "failed", "reason": f"unknown sequence_id: {sequence_id}"}
 
@@ -70,6 +74,10 @@ class RecommendationValidator:
                     "validation_status": "failed",
                     "reason": f"action {key} not in legal_actions",
                 }
+
+        fatal_reason = self._fatal_sequence_reason(actions, action_space)
+        if fatal_reason:
+            return {"validation_status": "failed", "reason": fatal_reason}
 
         return {"validation_status": "passed", "reason": "all actions are legal"}
 
@@ -89,6 +97,56 @@ class RecommendationValidator:
             sequence.get("sequence_id") == sequence_id
             for sequence in action_space.get("legal_sequences") or []
         )
+
+    @staticmethod
+    def _sequence_by_id(sequence_id: str, action_space: dict[str, Any]) -> dict[str, Any] | None:
+        for sequence in action_space.get("legal_sequences") or []:
+            if sequence.get("sequence_id") == sequence_id:
+                return sequence
+        return None
+
+    def _fatal_sequence_reason(
+        self,
+        actions: list[dict[str, Any]],
+        action_space: dict[str, Any],
+    ) -> str | None:
+        hero_effective_health = self._hero_effective_health(action_space)
+        if hero_effective_health <= 0:
+            return None
+
+        total_self_damage = 0
+        for action in actions:
+            total_self_damage += self._self_damage_from_action(action)
+            if total_self_damage >= hero_effective_health:
+                return (
+                    "sequence causes hero death: "
+                    f"self_damage={total_self_damage} hero_effective_health={hero_effective_health}"
+                )
+        return None
+
+    @staticmethod
+    def _hero_effective_health(action_space: dict[str, Any]) -> int:
+        hp = RecommendationValidator._as_int(action_space.get("hero_hp"))
+        armor = RecommendationValidator._as_int(action_space.get("hero_armor"))
+        return hp + armor
+
+    @staticmethod
+    def _self_damage_from_action(action: dict[str, Any]) -> int:
+        action_type = str(action.get("type") or "")
+        if action_type == "hero_attack":
+            return RecommendationValidator._as_int(action.get("self_damage_risk"))
+        if action_type == "hero_power":
+            effect = action.get("effect") or {}
+            if isinstance(effect, dict):
+                return RecommendationValidator._as_int(effect.get("self_damage"))
+        return 0
+
+    @staticmethod
+    def _as_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
     def _legal_action_keys(self, action_space: dict[str, Any]) -> set[tuple[Any, ...]]:
         """

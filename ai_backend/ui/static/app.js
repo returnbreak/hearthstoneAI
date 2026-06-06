@@ -51,10 +51,19 @@ const events = document.getElementById("events");
 const recommendationPlan = document.getElementById("recommendation-plan");
 const recommendationConfidence = document.getElementById("recommendation-confidence");
 const recommendationSummary = document.getElementById("recommendation-summary");
+const recommendationRisk = document.getElementById("recommendation-risk");
 const recommendationActions = document.getElementById("recommendation-actions");
+const recommendationDeckPlan = document.getElementById("recommendation-deck-plan");
+const recommendationDeckName = document.getElementById("recommendation-deck-name");
+const recommendationWinCondition = document.getElementById("recommendation-win-condition");
+const recommendationCoreCards = document.getElementById("recommendation-core-cards");
+const aiDecisionButton = document.getElementById("ai-decision-button");
 
 let recommendationRequestInFlight = false;
 let recommendationRefreshQueued = false;
+let aiDecisionRequestInFlight = false;
+let currentStateSignature = "";
+let renderedRecommendationStateSignature = null;
 
 
 // ── 顶层渲染入口 ─────────────────────────────────────────
@@ -76,6 +85,7 @@ function render(snapshot) {
   // latest_state 可能为 null（尚未收到任何 game_state 消息）
   // 用 || {} 兜底，避免后续访问 .turn / .mana 等属性时抛 TypeError
   const state = snapshot.latest_state || {};
+  currentStateSignature = stateSignature(state);
 
   // 消息计数：右上角显示后端已处理的消息总数
   messageCount.textContent = snapshot.message_count || 0;
@@ -98,7 +108,6 @@ function render(snapshot) {
 
   // 事件日志：委托给 renderEvents() 渲染
   renderEvents(snapshot.recent_events || []);
-  refreshRecommendation();
 }
 
 // ── 卡片 / 英雄 / 随从 格式化函数 ─────────────────────────
@@ -107,7 +116,7 @@ function render(snapshot) {
  * 将英雄对象格式化为单行文本。
  *
  * 输入示例：
- *   { class: "MAGE", hp: 30, armor: 5, attack: 0, can_attack: false, frozen: false, immune: false }
+ *   { class: "MAGE", hp: 30, armor: 5, attack: 0, frozen: false, immune: false }
  * 输出示例：
  *   "MAGE 30+5 atk 0"            — 无特殊状态
  *   "WARRIOR 25+10 atk 3 · can attack" — 可以攻击
@@ -129,7 +138,6 @@ function formatHero(hero) {
 
   // 收集激活的状态标记（仅收集值为 true 的关键词）
   const flags = [];
-  if (hero.can_attack) flags.push("can attack");  // 英雄可以攻击
   if (hero.frozen) flags.push("frozen");            // 被冻结
   if (hero.immune) flags.push("immune");            // 免疫
 
@@ -165,7 +173,7 @@ function formatCard(card) {
  * 将随从对象格式化为 { title, meta, tags } 结构，供 renderCards() 使用。
  *
  * 输入示例：
- *   { name: "石拳食人魔", attack: 6, health: 7, attacks_remaining: 1, taunt: true }
+ *   { name: "石拳食人魔", attack: 6, health: 7, taunt: true }
  * 返回示例：
  *   { title: "石拳食人魔", meta: "6/7 · attacks 1", tags: "taunt" }
  *
@@ -194,9 +202,9 @@ function formatMinion(minion) {
   return {
     // 优先显示名称，其次 card_id，都没有则 "Unknown minion"
     title: minion.name || minion.card_id || "Unknown minion",
-    // 攻击/生命 + 剩余攻击次数，如 "6/7 · attacks 1"
+    // 攻击/生命，如 "6/7"
     // attack/health 可能为 0（0 攻随从），所以用 ?? 而非 ||
-    meta: `${minion.attack ?? 0}/${minion.health ?? 0} · attacks ${minion.attacks_remaining ?? 0}`,
+    meta: `${minion.attack ?? 0}/${minion.health ?? 0}`,
     // 关键词用逗号连接，如 "taunt, divine_shield"
     tags: tags.join(", ")
   };
@@ -266,14 +274,22 @@ function renderEvents(items) {
   // 取最近 12 条并反转——最新的在前
   for (const event of items.slice(-12).reverse()) {
     const node = document.createElement("li");
-
-    // 拼接格式："<回合> <玩家> <事件类型> <详情>"
-    // trim() 去除首尾空格——各字段都可能缺失，不保留多余空白
-    // 用 textContent 赋值，自动转义，无需 escapeHtml()
-    node.textContent = `${event.turn ?? ""} ${event.player || ""} ${event.type || ""} ${event.name || event.card_id || event.reason || ""} ${event.result || ""}`.trim();
+    node.textContent = formatEvent(event);
 
     events.appendChild(node);
   }
+}
+
+function formatEvent(event) {
+  const prefix = `${event.turn ?? ""} ${event.player || ""} ${event.type || ""}`.trim();
+  if (event.type === "hero_attack" || event.type === "minion_attack") {
+    const source = event.name || event.card_id || event.entity_id || "unknown_attacker";
+    const targetData = event.target || {};
+    const target = targetData.name || targetData.card_id || targetData.entity_id || "unknown_target";
+    const damage = event.damage_amount == null ? "" : ` damage ${event.damage_amount}`;
+    return `${prefix} ${source} -> ${target}${damage}`.trim();
+  }
+  return `${prefix} ${event.name || event.card_id || event.reason || ""} ${event.result || ""}`.trim();
 }
 
 // ── 安全工具 ─────────────────────────────────────────────
@@ -301,14 +317,9 @@ async function refreshRecommendation() {
   try {
     const response = await fetch("/api/recommendation");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    renderRecommendation(await response.json());
+    renderNewRecommendation(await response.json());
   } catch (error) {
-    renderRecommendation({
-      plan: "unavailable",
-      summary: "Recommendation service is unavailable.",
-      confidence: 0,
-      actions: []
-    });
+    console.error("Recommendation refresh failed", error);
   } finally {
     recommendationRequestInFlight = false;
     if (recommendationRefreshQueued) {
@@ -318,13 +329,40 @@ async function refreshRecommendation() {
   }
 }
 
+async function requestAiDecision() {
+  if (aiDecisionRequestInFlight) return;
+
+  aiDecisionRequestInFlight = true;
+  aiDecisionButton.disabled = true;
+  aiDecisionButton.textContent = "Thinking";
+  try {
+    const response = await fetch("/api/ai/decision", { method: "POST" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    renderNewRecommendation(await response.json());
+  } catch (error) {
+    console.error("AI decision request failed", error);
+  } finally {
+    aiDecisionRequestInFlight = false;
+    aiDecisionButton.disabled = false;
+    aiDecisionButton.textContent = "AI Decision";
+  }
+}
+
+function renderNewRecommendation(recommendation) {
+  if (recommendation?.plan !== "ai_decision") return;
+  renderRecommendation(recommendation);
+}
+
 function renderRecommendation(recommendation) {
+  renderedRecommendationStateSignature = currentStateSignature;
   const plan = recommendation?.plan || "--";
   const confidence = Number(recommendation?.confidence ?? 0);
   recommendationPlan.textContent = plan;
   recommendationConfidence.textContent = `Confidence ${Math.round(confidence * 100)}%`;
   recommendationSummary.textContent = recommendation?.summary || "No recommendation";
+  recommendationRisk.textContent = recommendation?.risk ? `Risk: ${recommendation.risk}` : "";
   recommendationActions.innerHTML = "";
+  renderDeckPlan(recommendation?.my_deck_context || recommendation?.details?.my_deck_context);
 
   const actions = recommendation?.actions || [];
   if (!actions.length) {
@@ -337,10 +375,102 @@ function renderRecommendation(recommendation) {
   for (const action of actions) {
     const node = document.createElement("li");
     const damage = action.damage == null ? "" : ` damage ${action.damage}`;
+    const cost = action.cost == null ? "" : ` cost ${action.cost}`;
     const reason = action.reason ? ` - ${action.reason}` : "";
-    node.textContent = `${action.type || "action"} ${action.source ?? ""} -> ${action.target ?? ""}${damage}${reason}`.trim();
+    const name = action.name || action.card_id || "";
+    node.textContent = `${action.type || "action"} ${name} ${action.source ?? ""} -> ${action.target ?? ""}${cost}${damage}${reason}`.trim();
     recommendationActions.appendChild(node);
   }
+}
+
+function renderDeckPlan(context) {
+  const strategy = context?.strategy;
+  const deckName = strategy?.name || context?.deck_name;
+  if (!context || (!deckName && !context.analysis_required)) {
+    recommendationDeckPlan.hidden = true;
+    recommendationCoreCards.replaceChildren();
+    return;
+  }
+
+  recommendationDeckPlan.hidden = false;
+  recommendationDeckName.textContent = deckName || "未匹配套牌";
+  recommendationWinCondition.textContent = strategy?.win_condition
+    || "尚未匹配到维护过的套牌策略，模型将根据完整套牌和公开卡牌文本临时分析赢法。";
+  recommendationCoreCards.replaceChildren();
+
+  for (const card of strategy?.core_cards || []) {
+    const item = document.createElement("div");
+    item.className = "core-card-plan";
+
+    const name = document.createElement("strong");
+    name.textContent = card.name || card.card_id || "核心牌";
+    item.appendChild(name);
+
+    const timing = document.createElement("span");
+    timing.textContent = [card.role, card.play_timing, card.keep_condition]
+      .filter(Boolean)
+      .join("；");
+    item.appendChild(timing);
+    recommendationCoreCards.appendChild(item);
+  }
+}
+
+function stateSignature(state) {
+  return JSON.stringify({
+    game_id: state.game_id,
+    turn: state.turn,
+    active_player: state.active_player,
+    my_mana: state.my_mana || state.mana || null,
+    enemy_mana: state.enemy_mana || null,
+    my_hero: heroSignature(state.my_hero),
+    enemy_hero: heroSignature(state.enemy_hero),
+    hand: (state.hand || []).map(cardSignature),
+    my_board: (state.my_board || []).map(minionSignature),
+    enemy_board: (state.enemy_board || []).map(minionSignature)
+  });
+}
+
+function heroSignature(hero) {
+  if (!hero) return null;
+  return {
+    class: hero.class,
+    hp: hero.hp,
+    armor: hero.armor,
+    attack: hero.attack,
+    attacks_this_turn: hero.attacks_this_turn,
+    max_attacks_per_turn: hero.max_attacks_per_turn,
+    frozen: hero.frozen,
+    immune: hero.immune
+  };
+}
+
+function cardSignature(card) {
+  return {
+    entity_id: card.entity_id,
+    card_id: card.card_id,
+    name: card.name,
+    cost: card.cost,
+    type: card.type
+  };
+}
+
+function minionSignature(minion) {
+  return {
+    entity_id: minion.entity_id,
+    card_id: minion.card_id,
+    name: minion.name,
+    attack: minion.attack,
+    health: minion.health,
+    damage: minion.damage,
+    attacks_this_turn: minion.attacks_this_turn,
+    max_attacks_per_turn: minion.max_attacks_per_turn,
+    taunt: minion.taunt,
+    stealth: minion.stealth,
+    divine_shield: minion.divine_shield,
+    frozen: minion.frozen,
+    immune: minion.immune,
+    dormant: minion.dormant
+  };
 }
 
 function escapeHtml(value) {
@@ -400,6 +530,7 @@ function connect() {
     // payload 结构：{ type: "backend_update", snapshot: {...}, envelope: {...} }
     // 只渲染 snapshot 部分，envelope 暂未在前端使用
     if (payload.snapshot) render(payload.snapshot);
+    if (payload.recommendation) renderNewRecommendation(payload.recommendation);
   });
 
   // 连接断开：更新状态文字 + 1 秒后重试
@@ -416,4 +547,5 @@ function connect() {
 //   2. WebSocket 建立长连接（持续接收推送）
 
 loadInitial().catch(() => {});
+aiDecisionButton.addEventListener("click", requestAiDecision);
 connect();

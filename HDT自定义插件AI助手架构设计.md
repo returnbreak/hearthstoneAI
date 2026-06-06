@@ -72,9 +72,9 @@ LangChain 只放在 Python AI 后端，用于模型调用和 Prompt 编排；不
 | 本地通信 | WebSocket 优先，HTTP REST 备用 | WebSocket 适合实时事件流，REST 适合调试 |
 | AI 后端 | Python FastAPI + LangChain | FastAPI 负责服务接口，LangChain 负责模型调用、Prompt 编排和可选结构化输出接入 |
 | 状态存储 | SQLite + JSONL | SQLite 用于查询，JSONL 用于调试和回放测试原始记录 |
-| 卡牌数据 | HearthstoneJSON，本项目已有 `hearthstone_data/card_data` | 稳定、结构化、多语言、可用 `dbfId/card_id` 关联 |
-| 套牌数据 | 本项目已有 `hearthstone_data/deck_data` | 可用于卡组理解和提示词补充，优先结构化直查，不默认做 RAG |
-| AI 模型 | OpenAI API / 本地 Qwen 模型二选一 | 云端模型适合快速完成第一版，本地模型适合低延迟和可控成本 |
+| 卡牌数据 | HearthstoneJSON，本项目当前使用 `hearthstone_data/cards` | 稳定、结构化、多语言、可用 `dbfId/card_id` 关联 |
+| 套牌数据 | 本项目当前使用 `hearthstone_data/decks/strategy_context.zhCN.json` | 可用于卡组理解和提示词补充，优先结构化直查，不默认做 RAG |
+| AI 模型 | DeepSeek v4 flash，通过 LangChain 调用 | 当前默认使用更快的 DeepSeek flash 模型，仍可通过 `DEEPSEEK_MODEL` 切换供应商或具体模型 |
 | UI 展示 | HDT Overlay 或独立本地网页 | 第一版建议先用网页，后续再做 HDT 内嵌/悬浮窗 |
 | 调试工具 | 保存 `game_state.jsonl`、`events.jsonl` | 便于离线复盘和回放问题 |
 
@@ -265,11 +265,25 @@ GameState
   "card_id": "CS2_029",
   "dbf_id": 315,
   "name": "Fireball",
-  "zone_from": "HAND",
-  "zone_to": "PLAY",
-  "target_entity_id": 64
+  "target": {
+    "entity_id": 64,
+    "card_id": "CS2_182",
+    "name": "Chillwind Yeti",
+    "type": "minion"
+  }
 }
 ```
+
+事件目标统一使用嵌套 `target`。无目标事件不输出 `target` 字段。
+`target_player` 和 `target_is_hero` 不记录，英雄目标通过
+`target.type = "hero"` 判断。出牌目标从 HDT 保存的 Power.log
+`BLOCK_START BlockType=PLAY` 记录中取得实体 ID，再由
+`Game.Entities` 解析卡牌 ID、名称和实体类型。
+
+事件只输出有意义的可选字段。`entity_id`、`dbf_id` 和
+`damage_amount` 只有值大于 0 时输出；`card_id`、`name`、`reason`
+和 `result` 只有非空时输出。这样 `turn_started` 不会携带整组
+`null` 或 `0` 字段，攻击和有目标出牌仍保留完整实体关联。
 
 ### 6.2 GameState
 
@@ -292,9 +306,13 @@ GameState
     "armor": 0,
     "attack": 0
   },
-  "mana": {
+  "my_mana": {
     "current": 6,
     "max": 6
+  },
+  "enemy_mana": {
+    "current": 0,
+    "max": 5
   },
   "hand": [
     {
@@ -314,8 +332,7 @@ GameState
   "known_enemy_cards": [
     {
       "card_id": "EX1_539",
-      "name": "Kill Command",
-      "source": "played"
+      "name": "Kill Command"
     }
   ],
   "recent_events": []
@@ -483,10 +500,10 @@ UI 内容：
 4. 从 `Hearthstone.Game.Entities` 构建基础 `GameState`。
 5. 插件通过 WebSocket 推送 `GameEvent` 和 `GameState` 到 `ws://127.0.0.1:8765/ws/hdt`。
 6. Python FastAPI 后端接收事件和状态，并保存 `game_state.jsonl`、`events.jsonl`。
-7. 读取 `hearthstone_data/card_data/latest_full_cards.zhCN.json`，补充中文名、费用、类型和效果文本。
+7. 读取 `hearthstone_data/cards/card_index.zhCN.json`，补充中文名、费用、类型和效果文本。
 8. 实现普通 Python 规则引擎，输出 `rule_analysis`。
 9. 实现 Prompt 模板，输入 `GameState + rule_analysis + card_text`。
-10. 使用 LangChain 调用 OpenAI API 或本地 Qwen 兼容接口。
+10. 使用 LangChain 流式调用 DeepSeek v4 flash。
 11. 将模型建议推送到本地网页 UI。
 
 验收标准：
@@ -692,9 +709,19 @@ hearthstone_ai_assistant/
 
 ```text
 hearthstone_data/
-  card_data/
-  deck_data/
+  cards/
+    card_index.zhCN.json
+    images/
+  decks/
+    strategy_context.zhCN.json
 ```
+
+目录命名约定：
+
+- `cards/`：卡牌数据、卡牌索引和卡牌图片。
+- `decks/`：套牌环境、对手原型、己方套牌策略和提示词策略上下文。
+
+旧的 `latest/`、`meta/`、`card_data/`、`deck_data/` 不再作为运行时主目录使用。
 
 ## 17. 最终建议
 
@@ -718,9 +745,9 @@ HDT 自定义插件
 
 插件层只负责采集，不负责完整策略搜索。第一阶段扩展 `MinionSnapshot` 和 `HeroSnapshot` 字段：
 
-- 随从基础战斗字段：`attack`、`health`、`damage`、`zone_position`、`can_attack`、`attacks_this_turn`、`attacks_remaining`。
+- 随从基础战斗字段：`attack`、`health`、`damage`、`zone_position`、`attacks_this_turn`、`max_attacks_per_turn`。
 - 常见战斗关键词：`taunt`、`divine_shield`、`stealth`、`immune`、`frozen`、`rush`、`charge`、`windfury`、`mega_windfury`、`lifesteal`、`poisonous`、`venomous`、`reborn`、`deathrattle`、`dormant`、`silenced`、`cant_attack`。
-- 英雄战斗字段：`attack`、`can_attack`、`attacks_this_turn`、`attacks_remaining`、`immune`、`frozen`。
+- 英雄战斗字段：`attack`、`attacks_this_turn`、`max_attacks_per_turn`、`immune`、`frozen`。
 
 后端后续应增加 `combat_analyzer`，基于这些公开字段生成候选：
 
@@ -758,13 +785,13 @@ HDT 公开数据
 - 手牌是否在手、费用是否足够。
 - 随从牌是否有场位，场上最多 7 个随从。
 - 武器、英雄牌、地点等是否满足基础打出条件。
-- 攻击者是否能攻击：攻击力、冻结、休眠、免疫、剩余攻击次数、不能攻击等。
+- 攻击者是否能攻击：攻击力、冻结、休眠、`cant_attack`、`exhausted`，以及 `attacks_this_turn < max_attacks_per_turn`。
 - 目标是否合法：潜行、免疫、休眠、是否存在嘲讽。
 - 敌方有嘲讽时，不能直接攻击敌方英雄，也不能攻击非嘲讽随从。
 - 英雄技能是否本回合可用，是否有 2 费，是否需要目标。
 - 动作序列中的费用累计不能超过当前可用法力。
 - 动作序列中同一张手牌不能被重复打出。
-- 动作序列中同一个攻击者不能超过 `attacks_remaining`。
+- 动作序列中同一个攻击者的累计攻击次数不能超过 `max_attacks_per_turn`。
 - AI 返回的动作必须能在合法动作候选中找到，或能被后端校验为合法。
 
 ### 19.2 合法动作分类
@@ -820,10 +847,9 @@ end_turn
 基础合法性：
 
 - 攻击者在我方场面。
-- `can_attack = true`。
-- `attacks_remaining > 0`。
+- `attacks_this_turn < max_attacks_per_turn`。
 - 攻击力大于 0。
-- 未被冻结、未休眠、未免疫、未被标记不能攻击。
+- 未被冻结、未休眠、未被标记不能攻击或已疲惫。
 - 目标必须可被攻击。
 - 敌方有嘲讽时，目标必须是嘲讽随从。
 
@@ -1008,7 +1034,7 @@ Prompt Builder 应固定注入以下原则：
 
 - `play_card.source` 是否仍在手牌。
 - 费用累计是否超过当前剩余法力。
-- 攻击者是否仍有攻击次数。
+- 攻击者是否满足 `attacks_this_turn < max_attacks_per_turn`。
 - 目标是否在合法目标集合中。
 - 是否违反嘲讽。
 - 是否重复使用英雄技能。
@@ -1140,6 +1166,77 @@ UI 可以展示自然语言解释，但后端和测试应优先保存结构化�
 
 后端接入层增加 `IngestFilter`，在消息进入 `StateStore`、`ReplayWriter` 和 UI 广播之前先过滤异常输入。
 
+### 19.11 当前实现修订：AI 决策接口接入
+
+当前版本在动作空间接口之外新增独立 AI 决策接口：
+
+```text
+POST /api/ai/decision
+```
+
+职责边界：
+
+- `/api/recommendation` 继续只返回 `plan = "action_space"`，用于查看后端枚举出的合法动作空间。
+- `/api/ai/decision` 读取当前 `StateStore.latest_state`，内部调用 `RecommendationEngine` 生成 `action_space`。
+- `DecisionPromptBuilder` 将当前局面、手牌/场面卡牌文本、`legal_actions`、`legal_sequences` 和策略原则整理成 prompt。
+- `DecisionPromptBuilder` 要求模型用中文回答，并且只能基于传入的 `game_state`、`action_space` 和卡牌文本推理。
+- `LangChainDeepSeekDecisionClient` 通过 LangChain 调用 DeepSeek v4 flash，并优先使用流式输出拼接模型结果；没有配置 `DEEPSEEK_API_KEY` 时返回 `plan = "unavailable"`。
+- `AiDecisionService` 使用 `RecommendationValidator` 校验 AI 返回的 `chosen_sequence_id` 是否存在于 `legal_sequences`。
+- 只有校验通过的 `plan = "ai_decision"` 会写入 `recommendations.jsonl`；`action_space`、`unavailable`、`ai_decision_rejected` 不作为最终推荐落盘。
+- 动作空间包含 `trade_card`，用于表示可交易牌的 1 费换牌动作；武器牌会携带攻击、耐久和文本，并避免在同一序列里用盗贼英雄技能覆盖刚装备的武器。
+
+AI 输出结构：
+
+```json
+{
+  "chosen_sequence_id": "seq-003",
+  "reason": "先用手牌处理嘲讽，再用场攻压低敌方英雄血量。",
+  "risk": "如果对手下回合有群体解场，场面压力会下降。",
+  "confidence": 0.72
+}
+```
+
+后端返回结构：
+
+```json
+{
+  "plan": "ai_decision",
+  "summary": "先用手牌处理嘲讽，再用场攻压低敌方英雄血量。",
+  "chosen_sequence_id": "seq-003",
+  "actions": [],
+  "risk": "如果对手下回合有群体解场，场面压力会下降。",
+  "confidence": 0.72,
+  "validation": {
+    "validation_status": "passed"
+  }
+}
+```
+
+推荐日志中，成功决策的 `summary` 已经表达模型理由，因此不再重复记录
+同值的 `reason`。校验通过时只记录 `validation_status = "passed"`；
+校验失败时仍保留具体 `validation.reason`。
+
+前端不再依赖点击 `AI Decision` 按钮后才调用 AI。当前实现改为后端自动触发：
+
+- 我方回合开始且法力水晶已经刷新后，自动调用一次 AI。
+- 对手回合中，如果检测到对方法力为 0，且敌方英雄和场面随从都没有可见攻击动作，则提前构造“即将轮到我方”的预测状态，并预热调用 AI。
+- 预热调用只用于提前拿到可用决策和推送 UI，不写入 `recommendations.jsonl`，避免把预测结果当成真实回合最终推荐。
+- 正式我方回合触发且校验通过的 `plan = "ai_decision"` 才写入 `recommendations.jsonl`。
+- 所有真实模型调用只在 `debug/ai_requests/` 下写入一份格式化 JSON，
+  并通过 `metadata.trigger` 区分 `own_turn`、`hand_increased` 与
+  `opponent_spent_out`，不再生成 `ai_decision_attempts.jsonl`。
+
+AI 调试 JSON 保留结构化 `payload`、系统提示词、模型配置、解析后的模型
+输出、校验后决策和性能诊断。不重复保存 `user_prompt`、
+`model_request.messages`、`raw_model_content` 或原始响应文本副本。
+
+低延迟配置：
+
+- 默认模型：`deepseek-v4-flash`。
+- 默认超时：`AI_DECISION_TIMEOUT_SECONDS=15`。
+- 默认开启流式：`AI_DECISION_STREAMING=true`。
+- 默认只把较小候选序列集送入 prompt，减少模型输入体积。
+
 当前过滤规则：
 
 - 同一对局内，如果 `game_state.turn` 小于已经看到的最高回合，认为是历史回放，丢弃。
@@ -1163,3 +1260,82 @@ WebSocket 仍会返回 ack，并带上：
 ```
 
 这样插件端不会因为过滤而误判连接失败。
+## 19.12 当前实现修订：套牌意识与对局预案上下文
+
+当前版本新增 `matchup_context`，用于把“对手职业 + 已见卡牌 + 当前回合节奏 + 场面压力”整理成给 AI 使用的对局背景。它不替代合法动作生成，也不替代 AI 最终决策，只作为 prompt 中的概率化策略提示。
+
+实现边界：
+
+- 后端只根据公开信息构建套牌意识，包括 `enemy_hero.class`、`known_enemy_cards`、`enemy_board` 和 `recent_events`。
+- 不推断对手隐藏手牌，不声明已经确定对手套牌。
+- `MatchupContextBuilder` 内部可以保留多个候选原型用于打分，但 `DecisionPromptBuilder` 发送给模型时只保留一个 `matchup_context.identified_enemy_deck`，避免多候选反复影响模型判断。
+- 每个原型包含 `confidence`、`evidence`、`win_condition`、`core_cards` 和 `game_plan_against_it`，让 AI 结合当前场面、费用、合法动作、对手赢法和核心牌时机判断该抢血、解场还是保留资源。
+- Prompt 明确要求：套牌意识只能作为概率提示，当前场面、费用、卡牌文本和 `legal_sequences` 优先级更高。
+
+当前采用外部文件唯一数据源模式：
+
+```text
+hearthstone_data/decks/strategy_context.zhCN.json
+  -> MatchupContextBuilder
+  -> DecisionPromptBuilder
+  -> LangChain 模型决策
+```
+
+外部环境文件结构示例：
+
+```json
+{
+  "HUNTER": [
+    {
+      "name": "快攻猎",
+      "style": "aggro",
+      "base_confidence": 0.34,
+      "signals": ["奥术射击", "杀戮命令", "野兽"],
+      "win_condition": "前期持续压血，后期用直伤和英雄技能完成斩杀。",
+      "core_cards": [
+        {
+          "name": "低费攻击源",
+          "role": "前期持续伤害",
+          "play_timing": "前两回合优先按费打出，建立可重复攻击点。",
+          "keep_condition": "起手优先保留。",
+          "counter_priority": "优先解能持续攻击或吃增益的随从。"
+        }
+      ],
+      "strategy_detail_level": "representative_core",
+      "game_plan": "默认尊重抢血压力；如果我方速度慢于对手，优先处理关键场面和攻击源，再寻找反杀窗口。"
+    }
+  ]
+}
+```
+
+这意味着后续如果要更新环境套牌，只需要维护 `hearthstone_data/decks/strategy_context.zhCN.json` 中的 `deck_archetypes`，不必改 prompt 主逻辑，也不需要修改代码里的套牌表。`deck_archetypes` 按职业分组，每个职业保留 1-3 套代表性套牌，己方和对手都读取同一份套牌数据。
+
+当前代码不再保存任何内置职业原型表。若该文件不存在、JSON 无效或没有可用职业列表，`MatchupContextBuilder` 会返回空的候选结果，并在 `meta_source.status` 中标记 `missing`、`invalid` 或 `empty`。这种情况下 AI 仍然可以根据当前场面、费用、卡牌文本和 `legal_sequences` 决策，但不会获得环境套牌候选提示。
+
+`DecisionPromptBuilder` 还会向模型发送 `action_space.lethal_sequence_ids`。只要该列表非空，提示词要求模型必须从其中选择，不能为了资源、解场或站场放弃合法斩杀。
+
+## 19.13 当前实现修订：己方套牌核心赢法与核心牌时机
+
+己方套牌策略不再依赖模型仅凭当前手牌猜测。HDT 开局发送
+`game_metadata.deck`，后端通过 `StateStore.decision_state()` 将完整套牌元数据合并到
+自动和手动 AI 决策状态中。
+
+`DeckStrategyContextBuilder` 从
+`hearthstone_data/decks/strategy_context.zhCN.json` 中的 `deck_archetypes` 加载外部策略。它和 `MatchupContextBuilder` 使用同一份套牌数据；区别只是己方按实际套牌名和签名卡匹配，对手按职业和已见公开卡牌打分。匹配顺序为：
+
+1. 职业和模式兼容。
+2. 套牌名称精确匹配。
+3. 核心签名卡命中和完整卡组重合度匹配。
+4. 匹配失败时仍发送完整套牌和卡牌文本，由模型进行临时分析，同时标记
+   `analysis_required=true`，不伪造已确认的核心牌。
+
+写入 prompt 的 `my_deck_context` 包含实际套牌、匹配置信度、核心赢法、
+`core_cards[].role`、`play_timing`、`keep_condition` 和
+`burst_exception`。套牌策略仍不能覆盖费用、目标、嘲讽、免疫和合法动作约束。
+
+Prompt 新增通用优先级：非爆发斩杀或组合套牌，前期同费用下通常优先让随从占场，
+保留能够持续攻击的己方随从，而不是无收益地消耗法术。只有高收益交换、保护英雄、
+阻断关键机制或建立明确斩杀时才降低场面优先级；爆发套牌则按核心赢法保留伤害和组合组件。
+
+网页端采用顶部主推荐布局：推荐区占四列网格中的三列，右侧集中显示回合、法力和双方英雄；
+推荐区额外展示己方套牌、核心赢法和核心牌出牌时机。

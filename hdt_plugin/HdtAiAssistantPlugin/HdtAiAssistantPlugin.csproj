@@ -9,7 +9,7 @@
     <AssemblyName>HdtAiAssistantPlugin</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <LangVersion>5</LangVersion>
-    <HdtInstallDir Condition=" '$(HdtInstallDir)' == '' ">$(LocalAppData)\HearthstoneDeckTracker\app-1.52.15</HdtInstallDir>
+    <HdtInstallDir Condition=" '$(HdtInstallDir)' == '' ">$(LocalAppData)\HearthstoneDeckTracker\app-1.52.18</HdtInstallDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -48,11 +48,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EntityStateReader.cs" />
+    <Compile Include="DeckMetadataReader.cs" />
     <Compile Include="GameEventCollector.cs" />
     <Compile Include="GameStateBuilder.cs" />
     <Compile Include="PluginConfig.cs" />
     <Compile Include="PluginEntry.cs" />
     <Compile Include="PluginLog.cs" />
+    <Compile Include="PowerLogEventResolver.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HdtAiAssistant.Core\HdtAiAssistant.Core.csproj">

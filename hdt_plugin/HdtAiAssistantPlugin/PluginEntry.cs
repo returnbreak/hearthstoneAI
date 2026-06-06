@@ -25,6 +25,8 @@ namespace HdtAiAssistantPlugin
     {
         private PluginConfig _config;
         private GameEventCollector _eventCollector;
+        private DeckMetadataReader _deckMetadataReader;
+        private PowerLogEventResolver _powerLogEventResolver;
         private GameStateBuilder _stateBuilder;
         private SnapshotPublisher _publisher;
         private SnapshotThrottler _throttler;
@@ -63,6 +65,8 @@ namespace HdtAiAssistantPlugin
             _config = PluginConfig.Load();
             _config.EnsureConfigFile();
             _eventCollector = new GameEventCollector();
+            _deckMetadataReader = new DeckMetadataReader();
+            _powerLogEventResolver = new PowerLogEventResolver();
             _stateBuilder = new GameStateBuilder(new EntityStateReader(), _config.MaxRecentEvents);
             _publisher = new SnapshotPublisher(new WebSocketBackendTransport(_config.BackendWebSocketUrl));
             _throttler = new SnapshotThrottler(_config.MaxAutomaticRecommendationsPerTurn);
@@ -79,6 +83,8 @@ namespace HdtAiAssistantPlugin
             GameEvents.OnPlayerHandDiscard.Add(card => OnCardEvent("me", "card_discarded_from_hand", card));
             GameEvents.OnOpponentPlay.Add(card => OnCardEvent("opponent", "card_played", card));
             GameEvents.OnOpponentHandDiscard.Add(card => OnCardEvent("opponent", "card_discarded_from_hand", card));
+            GameEvents.OnPlayerMinionAttack.Add(info => OnAttackEvent("me", info));
+            GameEvents.OnOpponentMinionAttack.Add(info => OnAttackEvent("opponent", info));
 
             _loaded = true;
             PluginLog.Info("Loaded. Backend=" + _config.BackendWebSocketUrl);
@@ -174,7 +180,37 @@ namespace HdtAiAssistantPlugin
         {
             StartGameIfNeeded("implicit_card_event");
 
-            var evt = _eventCollector.CreateCardEvent(_gameId, ReadTurn(), player, type, card);
+            var resolvedPlay = type == "card_played"
+                ? _powerLogEventResolver.ResolveLatestPlay(card)
+                : new ResolvedPlay();
+            var evt = _eventCollector.CreateCardEvent(
+                _gameId,
+                ReadTurn(),
+                player,
+                type,
+                card,
+                resolvedPlay.SourceEntityId,
+                resolvedPlay.Target);
+            RecordAndPublish(evt, RecommendationTrigger.SignificantStateChange);
+        }
+
+        private void OnAttackEvent(string player, AttackInfo attackInfo)
+        {
+            StartGameIfNeeded("implicit_attack_event");
+
+            var attackerEntityId = Core.Game == null || Core.Game.ProposedAttacker <= 0
+                ? (int?)null
+                : Core.Game.ProposedAttacker;
+            var defenderEntityId = Core.Game == null || Core.Game.ProposedDefender <= 0
+                ? (int?)null
+                : Core.Game.ProposedDefender;
+            var evt = _eventCollector.CreateAttackEvent(
+                _gameId,
+                ReadTurn(),
+                player,
+                attackInfo,
+                attackerEntityId,
+                _powerLogEventResolver.ResolveEntity(defenderEntityId));
             RecordAndPublish(evt, RecommendationTrigger.SignificantStateChange);
         }
 
@@ -207,6 +243,20 @@ namespace HdtAiAssistantPlugin
             _inGame = true;
             var evt = _eventCollector.CreateLifecycleEvent(_gameId, ReadTurn(), "game_started", reason, null);
             RecordAndPublish(evt, RecommendationTrigger.GameStarted);
+            PublishGameMetadata();
+        }
+
+        private void PublishGameMetadata()
+        {
+            try
+            {
+                var metadata = _deckMetadataReader.Read(_gameId);
+                FireAndForget(_publisher.PublishGameMetadataAsync(metadata, _cancellation.Token));
+            }
+            catch(Exception ex)
+            {
+                PluginLog.Error(ex);
+            }
         }
 
         private void RecordAndPublishEventOnly(GameEvent gameEvent)
